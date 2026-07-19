@@ -236,8 +236,6 @@ tr:hover td{background:var(--paper)}
 .toggle input:checked + .toggle-slider{background:var(--accent)}
 .toggle input:checked + .toggle-slider:before{transform:translateX(20px)}
 
-/* PREVIEW MODAL */
-.preview-frame{background:var(--paper2);border-radius:var(--radius-lg);padding:1.5rem}
 </style>
 </head>
 <body>
@@ -374,6 +372,12 @@ tr:hover td{background:var(--paper)}
                    onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">
             <span class="fontsize-unit">pt</span>
           </div>
+          <div class="fontsize-input-wrap" title="行高（游標所在這一行的行距倍數，空白行也適用；不選文字、只把游標移到該行即可套用）">
+            <input type="number" class="rte-fontsize" id="bd-lineheight" min="1" max="3" step="0.1" value="1.5"
+                   onchange="applyLineHeight('birthday', this.value)"
+                   onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">
+            <span class="fontsize-unit">行高</span>
+          </div>
           <div class="color-picker-wrap">
             <button type="button" class="color-btn" onmousedown="event.preventDefault()" onclick="toggleColorPalette('birthday', event)" title="文字顏色">
               <span class="color-btn-swatch" id="bd-color-swatch" style="background:#1a1814"></span>顏色
@@ -430,7 +434,6 @@ tr:hover td{background:var(--paper)}
       </div>
 
       <div style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap">
-        <button class="btn-sm btn-secondary" onclick="openPreview('birthday')">👁 預覽賀卡</button>
         <button class="btn-sm btn-primary" onclick="saveCardContent('birthday')">💾 儲存內文設定</button>
         <button class="btn-sm btn-secondary" onclick="testRenderCard('birthday')">🔧 測試圖片合成</button>
         <span class="config-hint" id="bd-cc-status"></span>
@@ -466,6 +469,12 @@ tr:hover td{background:var(--paper)}
                    onchange="applyFontSize('anniversary', this.value)"
                    onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">
             <span class="fontsize-unit">pt</span>
+          </div>
+          <div class="fontsize-input-wrap" title="行高（游標所在這一行的行距倍數，空白行也適用；不選文字、只把游標移到該行即可套用）">
+            <input type="number" class="rte-fontsize" id="an-lineheight" min="1" max="3" step="0.1" value="1.5"
+                   onchange="applyLineHeight('anniversary', this.value)"
+                   onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">
+            <span class="fontsize-unit">行高</span>
           </div>
           <div class="color-picker-wrap">
             <button type="button" class="color-btn" onmousedown="event.preventDefault()" onclick="toggleColorPalette('anniversary', event)" title="文字顏色">
@@ -524,7 +533,6 @@ tr:hover td{background:var(--paper)}
       </div>
 
       <div style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap">
-        <button class="btn-sm btn-secondary" onclick="openPreview('anniversary')">👁 預覽賀卡</button>
         <button class="btn-sm btn-primary" onclick="saveCardContent('anniversary')">💾 儲存內文設定</button>
         <button class="btn-sm btn-secondary" onclick="testRenderCard('anniversary')">🔧 測試圖片合成</button>
         <span class="config-hint" id="an-cc-status"></span>
@@ -669,23 +677,6 @@ tr:hover td{background:var(--paper)}
       <button class="btn-sm btn-secondary" onclick="closeAdminModal()">取消</button>
       <button class="btn-sm btn-primary" onclick="saveAdmin()">儲存</button>
     </div>
-  </div>
-</div>
-
-<!-- ═══════ MODAL: CARD PREVIEW ═══════ -->
-<div class="modal-overlay" id="modal-preview">
-  <div class="modal wide">
-    <div class="modal-head"><h3>賀卡預覽（範例：王小明／人資部）</h3><button class="btn-close" onclick="closePreview()">✕</button></div>
-    <div class="modal-body">
-      <div class="config-hint" style="margin-bottom:.75rem">郵件主旨：<strong id="preview-subject" style="color:var(--ink)"></strong></div>
-      <div class="preview-frame">
-        <div class="card-canvas" id="preview-canvas" style="max-width:100%">
-          <div class="card-canvas-img" id="preview-canvas-img"></div>
-          <div class="rte-body" id="preview-body"></div>
-        </div>
-      </div>
-    </div>
-    <div class="modal-foot"><button class="btn-sm btn-secondary" onclick="closePreview()">關閉</button></div>
   </div>
 </div>
 
@@ -941,16 +932,46 @@ document.addEventListener('DOMContentLoaded', ()=>{
   });
 
   // 記錄內文編輯區目前的選取範圍，讓字級/顏色下拉選單（需要搶走焦點才能開啟）
-  // 在使用者選色/選字級之後，仍能套用到原本選取的文字
+  // 在使用者選色/選字級之後，仍能套用到原本選取的文字；同時即時把字級/行高輸入框
+  // 更新成游標目前所在文字的實際數值，讓調整字級/行高變成「所見即所得」的互動操作，
+  // 而不是每次都顯示固定的預設值
   ['birthday','anniversary'].forEach(type=>{
     const body = document.getElementById(pfx(type)+'-body');
     if(!body) return;
     ['mouseup','keyup'].forEach(evt=>body.addEventListener(evt, ()=>{
       const sel = window.getSelection();
       if(sel.rangeCount && body.contains(sel.anchorNode)) savedRanges[type] = sel.getRangeAt(0);
+      updateToolbarFromCursor(type);
     }));
   });
 });
+
+// 讀取游標目前所在位置的實際字級／行高，同步顯示在工具列的輸入框上
+function updateToolbarFromCursor(type){
+  const body = document.getElementById(pfx(type)+'-body');
+  const sel = window.getSelection();
+  if(!sel.rangeCount) return;
+  const range = sel.getRangeAt(0);
+  if(!body.contains(range.startContainer)) return;
+
+  const node = range.startContainer.nodeType === Node.TEXT_NODE ? range.startContainer.parentElement : range.startContainer;
+  if(!node || !body.contains(node)) return;
+  const cs = getComputedStyle(node);
+
+  const fsInput = document.getElementById(pfx(type)+'-fontsize');
+  const fsPx = parseFloat(cs.fontSize);
+  if(fsInput && !isNaN(fsPx)) fsInput.value = Math.round(fsPx);
+
+  // CSS 不帶單位的行高是「倍數」，瀏覽器算出來的 computedStyle 卻是換算後的絕對像素，
+  // 沒辦法直接讀出原本設定的倍數。但因為倍數是往下繼承、每個節點各自用自己的字級去算，
+  // 所以「這個節點算出來的行高像素 ÷ 這個節點自己的字級像素」一定會等於原本設定的倍數，
+  // 不管游標在整行裡的哪個字級大小的文字上，換算回來都會是同一個正確的行高倍數
+  const lhInput = document.getElementById(pfx(type)+'-lineheight');
+  const lhPx = parseFloat(cs.lineHeight);
+  if(lhInput && !isNaN(lhPx) && !isNaN(fsPx) && fsPx > 0){
+    lhInput.value = Math.round((lhPx / fsPx) * 10) / 10;
+  }
+}
 
 function handleImageSelect(type, files){
   if(!files || !files.length) return;
@@ -1174,15 +1195,15 @@ function wrapSelectionStyle(type, styleProp, styleValue){
   savedRanges[type] = newRange;
 }
 
-// 遞迴清掉範圍內所有節點既有的 inline font-size（保留粗體/斜體/顏色/底線等其他樣式）。
-// 這是「選字級要點兩次才生效」跟「全選＋空行時字級不會同步縮放」的根本原因：
-// 之前只在外層再包一層新的 span，選取範圍裡舊的、巢狀更深的 font-size 樣式權重比新的外層高，
-// 所以視覺上看不出變化、或只有部分文字改變。先把舊的字級樣式全部清乾淨，再統一套用新字級，
-// 才能保證選取範圍（包含裡面的空白行）整段跟著一起放大縮小
-function stripFontSize(node){
+// 遞迴清掉範圍內所有節點既有的某個 inline 樣式（例如 font-size、line-height），保留其他樣式
+// （粗體/斜體/顏色/底線等）不動。這是「選字級要點兩次才生效」跟「全選＋空行時字級不會同步
+// 縮放」的根本原因：之前只在外層再包一層新的 span，選取範圍裡舊的、巢狀更深的樣式權重比新的
+// 外層高，所以視覺上看不出變化、或只有部分文字改變。先把舊樣式清乾淨，再統一套用新樣式，
+// 才能保證選取範圍（包含裡面的空白行）整段跟著一起變化
+function stripInlineStyle(node, prop){
   if(node.nodeType === Node.ELEMENT_NODE){
-    if(node.style) node.style.fontSize = '';
-    Array.from(node.childNodes).forEach(stripFontSize);
+    if(node.style) node.style[prop] = '';
+    Array.from(node.childNodes).forEach(n => stripInlineStyle(n, prop));
   }
 }
 
@@ -1213,22 +1234,30 @@ function applyFontSize(type, val){
     sel.removeAllRanges();
     sel.addRange(range);
 
-    const existingMarker = findMarkerSpanInRange(lineRange);
-    if(existingMarker){
-      existingMarker.style.fontSize = px + 'px';
+    let markerSpan = findMarkerSpanInRange(lineRange);
+    if(markerSpan){
+      markerSpan.style.fontSize = px + 'px';
     } else {
-      const span = document.createElement('span');
-      span.style.fontSize = px + 'px';
-      span.appendChild(document.createTextNode('​'));
-      range.insertNode(span);
+      markerSpan = document.createElement('span');
+      markerSpan.style.fontSize = px + 'px';
+      markerSpan.appendChild(document.createTextNode('​'));
+      range.insertNode(markerSpan);
     }
-    savedRanges[type] = null;
+    // 把游標留在這個標記裡面（收合成定點，不是 null）：如果沒有留下有效的選取範圍，
+    // 使用者不重新點回編輯區、直接連續調整字級/行高時，就找不到「目前在哪一行」，
+    // 瀏覽器會退回用目前實際的選取狀態，常常已經跑掉、跳到最上面一行去
+    sel.removeAllRanges();
+    const newRange = document.createRange();
+    newRange.selectNodeContents(markerSpan);
+    newRange.collapse(false);
+    sel.addRange(newRange);
+    savedRanges[type] = newRange;
     return;
   }
 
   // 一般文字選取（可能橫跨多行、也可能包含空白行）：抽出選取內容、清掉舊字級後，整段統一包成新字級
   const frag = range.extractContents();
-  stripFontSize(frag);
+  stripInlineStyle(frag, 'fontSize');
   const span = document.createElement('span');
   span.style.fontSize = px + 'px';
   span.appendChild(frag);
@@ -1237,6 +1266,117 @@ function applyFontSize(type, val){
   sel.removeAllRanges();
   const newRange = document.createRange();
   newRange.selectNodeContents(span);
+  sel.addRange(newRange);
+  savedRanges[type] = newRange;
+}
+
+// 把目前的選取範圍擴大成「完整涵蓋的每一行」：不管是單純把游標移到某一行（沒有選取任何文字），
+// 還是拖曳選取了一段跨越多行的文字，都會擴大成從第一行行首到最後一行行尾。行高是「整行」的
+// 屬性（不像字級/顏色是針對選到的文字），所以套用行高時，不管游標/選取範圍落在行的哪個位置，
+// 都要以整行為準，空白行也才能被涵蓋進去
+function expandRangeToFullLines(range, sel){
+  const startCaret = range.cloneRange(); startCaret.collapse(true);
+  const endCaret = range.cloneRange(); endCaret.collapse(false);
+  const startLine = getLineBoundaryRange(startCaret, sel);
+  const endLine = getLineBoundaryRange(endCaret, sel);
+  const full = document.createRange();
+  full.setStart(startLine.startContainer, startLine.startOffset);
+  full.setEnd(endLine.endContainer, endLine.endOffset);
+  return full;
+}
+
+// CSS 的行高在「行內元素」上沒辦法真的把一行縮小：每個 line box 都會有一個基準高度，
+// 是從它所在的區塊自己的字型／行高算出來的（不管行內有沒有實際文字），行內的 <span> 只能讓
+// 這一行「變高」（蓋過基準高度），沒辦法讓它「變矮」（縮到基準高度以下）。這就是為什麼行高
+// 調大會生效、調小卻沒用。要能真的縮小，這一行本身必須是一個獨立的區塊（<div>），讓行高改
+// 用這個區塊自己的設定去計算基準高度。以下這組函式就是在做這件事：把游標／選取範圍所在的
+// 整行，轉成一個獨立的 <div style="line-height:...">，而不是像字級/顏色那樣包一個 <span>
+
+// 找出緊鄰在範圍邊界外、原本用來分隔這一行的 <br>
+function getAdjacentNode(container, offset, before){
+  if(container.nodeType === Node.TEXT_NODE){
+    return before ? (offset === 0 ? container.previousSibling : null)
+                  : (offset === container.length ? container.nextSibling : null);
+  }
+  return before ? (offset > 0 ? container.childNodes[offset - 1] : null)
+                : (container.childNodes[offset] || null);
+}
+
+function removeAdjacentLineBreak(range, before){
+  const container = before ? range.startContainer : range.endContainer;
+  const offset = before ? range.startOffset : range.endOffset;
+  const adjacent = getAdjacentNode(container, offset, before);
+  if(adjacent && adjacent.nodeName === 'BR') adjacent.remove();
+}
+
+// 如果這段範圍剛好完整落在「先前套用行高時建立的那一個 <div>」裡面，直接回傳它，
+// 這樣重複調整同一行的行高只會更新原本的 div，不會一直往內疊加新的 div。
+// 游標在既有的行高 div 裡面時，getLineBoundaryRange 抓到的行範圍會落在 div「裡面」
+// （文字節點層級），而不是從 div 外面把整個 div 包住，所以要用往上找最近的行高 div 祖先
+// 來判斷，而不是直接比對 range 的 container/offset
+function getSoleWrappingLineHeightDiv(range){
+  function nearestLineHeightDiv(node){
+    let el = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+    while(el){
+      if(el.tagName === 'DIV' && el.style && el.style.lineHeight) return el;
+      el = el.parentElement;
+    }
+    return null;
+  }
+  const startDiv = nearestLineHeightDiv(range.startContainer);
+  const endDiv = nearestLineHeightDiv(range.endContainer);
+  if(startDiv && startDiv === endDiv) return startDiv;
+  return null;
+}
+
+function applyLineHeight(type, val){
+  const lh = parseFloat(val);
+  if(!lh || lh < 0.5 || lh > 4) return;
+  const body = document.getElementById(pfx(type)+'-body');
+  body.focus();
+  const sel = window.getSelection();
+  if(savedRanges[type]){
+    sel.removeAllRanges();
+    sel.addRange(savedRanges[type]);
+  }
+  if(!sel.rangeCount || !body.contains(sel.getRangeAt(0).commonAncestorContainer)){
+    alert('請先將游標移到（或選取）要調整行高的那一行，空白行也可以');
+    return;
+  }
+  const range = sel.getRangeAt(0);
+  const fullRange = expandRangeToFullLines(range, sel);
+  // expandRangeToFullLines 內部呼叫過 sel.modify()，選取狀態已經被移動過，這裡要先還原
+  sel.removeAllRanges();
+  sel.addRange(range);
+
+  let targetDiv = getSoleWrappingLineHeightDiv(fullRange);
+  if(targetDiv){
+    targetDiv.style.lineHeight = lh;
+  } else {
+    // 這一行原本如果是用 <br> 跟前後行分隔，把緊鄰的 <br> 拿掉——等一下包成的 <div> 本身就會
+    // 自動換行，留著 <br> 反而會多插入一行空白
+    removeAdjacentLineBreak(fullRange, true);
+    removeAdjacentLineBreak(fullRange, false);
+
+    targetDiv = document.createElement('div');
+    targetDiv.style.lineHeight = lh;
+    if(fullRange.collapsed){
+      targetDiv.appendChild(document.createTextNode('​'));
+    } else {
+      const frag = fullRange.extractContents();
+      stripInlineStyle(frag, 'lineHeight');
+      targetDiv.appendChild(frag);
+    }
+    fullRange.insertNode(targetDiv);
+  }
+
+  // 把游標收合成定點、留在這個 div 裡面，不要設成 null：如果沒有留下有效的選取範圍，使用者
+  // 不重新點回編輯區、直接連續調整行高時，就找不到「目前在哪一行」，會退回用當下實際的選取
+  // 狀態，這時常常已經跑掉、跳到最上面第一行去，導致「連續點調整行高，游標自己跳到第一行」
+  sel.removeAllRanges();
+  const newRange = document.createRange();
+  newRange.selectNodeContents(targetDiv);
+  newRange.collapse(false);
   sel.addRange(newRange);
   savedRanges[type] = newRange;
 }
@@ -1282,28 +1422,13 @@ function testRenderCard(type){
     .then(r=>r.json())
     .then(res=>{
       if(res.status==='ok'){
-        resultEl.innerHTML = `<div class="config-hint" style="margin-bottom:.5rem">✅ 合成成功，以下是實際會寄出的圖片：</div><img src="${res.imageDataUri}" style="max-width:100%;border-radius:8px;border:1px solid var(--paper3)">`;
+        resultEl.innerHTML = `<div class="config-hint" style="margin-bottom:.5rem">✅ 合成成功，以下是實際會寄出的圖片：</div><img src="${res.imageDataUri}" style="width:100%;display:block">`;
       } else {
         resultEl.innerHTML = `<div class="login-err" style="display:block">⚠️ 合成失敗：${esc(res.message||'')}${res.stack ? '<br><span style="font-size:.72rem;opacity:.7">'+esc(res.stack)+'</span>' : ''}</div>`;
       }
     })
     .catch(()=>{ resultEl.innerHTML = '<div class="login-err" style="display:block">⚠️ 連線失敗，請確認 Apps Script 已部署最新版本</div>'; });
 }
-
-function openPreview(type){
-  const subject = document.getElementById(pfx(type)+'-subject').value || '（尚未設定主旨）';
-  const bodyHtml = document.getElementById(pfx(type)+'-body').innerHTML || '（尚未設定內文）';
-  const sample = type === 'anniversary'
-    ? { '{{姓名}}':'王小明', '{{部門}}':'人資部', '{{工號}}':'A0012', '{{到職日}}':'2021/07/18', '{{年資}}':'5' }
-    : { '{{姓名}}':'王小明', '{{部門}}':'人資部', '{{工號}}':'A0012', '{{生日}}':'07/18' };
-  const fill = t => Object.keys(sample).reduce((acc,k)=>acc.split(k).join(sample[k]), t);
-
-  document.getElementById('preview-subject').textContent = fill(subject);
-  document.getElementById('preview-body').innerHTML = fill(bodyHtml);
-  document.getElementById('preview-canvas-img').style.backgroundImage = cardState[type].imageUrl ? `url("${cardState[type].imageUrl}")` : '';
-  document.getElementById('modal-preview').classList.add('open');
-}
-function closePreview(){ document.getElementById('modal-preview').classList.remove('open'); }
 
 // ═══════════ 寄送設定（birthday / anniversary 共用）═══════════
 function loadSendSettings(type){
