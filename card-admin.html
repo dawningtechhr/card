@@ -192,6 +192,10 @@ tr:hover td{background:var(--paper)}
 .rte-toolbar button{background:#fff;border:1px solid var(--paper3);color:var(--ink2);width:30px;height:30px;font-size:.85rem;border-radius:var(--radius)}
 .rte-toolbar button:hover{background:var(--accent-light);border-color:var(--accent);color:var(--accent2)}
 .rte-toolbar select{width:auto;padding:.3rem;font-size:.78rem;height:30px}
+.fontsize-input-wrap{display:flex;align-items:center;gap:.3rem;background:#fff;border:1px solid var(--paper3);border-radius:var(--radius);padding:0 .5rem;height:30px}
+.rte-fontsize{width:44px;padding:0;border:none;height:28px;font-size:.82rem;text-align:center}
+.rte-fontsize:focus{box-shadow:none}
+.fontsize-unit{font-size:.72rem;color:var(--ink3)}
 .rte-body:focus{border-color:var(--accent)}
 
 /* COLOR PICKER（點色塊選色，取代原生調色盤） */
@@ -210,7 +214,7 @@ tr:hover td{background:var(--paper)}
    圖片再寄出，所以這裡的疊圖預覽跟實際收到的信件是一致的（而非用瀏覽器 CSS 硬疊） */
 .card-canvas{position:relative;width:100%;max-width:640px;aspect-ratio:3/2;background:var(--paper2);border:1px solid var(--paper3);border-top:none;border-radius:0 0 var(--radius) var(--radius);overflow:hidden}
 .card-canvas .card-canvas-img{position:absolute;inset:0;background-size:cover;background-position:center;background-repeat:no-repeat}
-.card-canvas .rte-body{position:absolute;top:5%;left:5%;right:5%;bottom:4%;padding:3% 4%;font-size:1.05rem;line-height:1.5;outline:none;overflow:auto;color:#1a1814;font-family:'Noto Sans TC',sans-serif}
+.card-canvas .rte-body{position:absolute;top:5%;left:5%;right:5%;bottom:4%;padding:0;font-size:14px;line-height:1.5;outline:none;overflow:auto;color:#1a1814;font-family:'Noto Sans TC',sans-serif}
 .card-canvas .card-canvas-empty-msg{display:none;position:absolute;inset:0;align-items:center;justify-content:center;text-align:center;color:var(--ink3);font-size:.85rem;padding:2rem}
 .card-canvas.empty .rte-body{display:none}
 .card-canvas.empty .card-canvas-empty-msg{display:flex}
@@ -364,13 +368,12 @@ tr:hover td{background:var(--paper)}
           <button type="button" onmousedown="event.preventDefault()" onclick="rteExec('birthday','bold')"><b>B</b></button>
           <button type="button" onmousedown="event.preventDefault()" onclick="rteExec('birthday','italic')"><i>I</i></button>
           <button type="button" onmousedown="event.preventDefault()" onclick="rteExec('birthday','underline')"><u>U</u></button>
-          <select onchange="rteExec('birthday','fontSize', this.value)">
-            <option value="">字級</option>
-            <option value="2">小</option>
-            <option value="3" selected>正常</option>
-            <option value="5">大</option>
-            <option value="7">特大</option>
-          </select>
+          <div class="fontsize-input-wrap" title="字級（點選數字直接輸入，跟一般文書軟體一樣）">
+            <input type="number" class="rte-fontsize" id="bd-fontsize" min="6" max="96" step="1" value="14"
+                   onchange="applyFontSize('birthday', this.value)"
+                   onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">
+            <span class="fontsize-unit">pt</span>
+          </div>
           <div class="color-picker-wrap">
             <button type="button" class="color-btn" onmousedown="event.preventDefault()" onclick="toggleColorPalette('birthday', event)" title="文字顏色">
               <span class="color-btn-swatch" id="bd-color-swatch" style="background:#1a1814"></span>顏色
@@ -458,13 +461,12 @@ tr:hover td{background:var(--paper)}
           <button type="button" onmousedown="event.preventDefault()" onclick="rteExec('anniversary','bold')"><b>B</b></button>
           <button type="button" onmousedown="event.preventDefault()" onclick="rteExec('anniversary','italic')"><i>I</i></button>
           <button type="button" onmousedown="event.preventDefault()" onclick="rteExec('anniversary','underline')"><u>U</u></button>
-          <select onchange="rteExec('anniversary','fontSize', this.value)">
-            <option value="">字級</option>
-            <option value="2">小</option>
-            <option value="3" selected>正常</option>
-            <option value="5">大</option>
-            <option value="7">特大</option>
-          </select>
+          <div class="fontsize-input-wrap" title="字級（點選數字直接輸入，跟一般文書軟體一樣）">
+            <input type="number" class="rte-fontsize" id="an-fontsize" min="6" max="96" step="1" value="14"
+                   onchange="applyFontSize('anniversary', this.value)"
+                   onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">
+            <span class="fontsize-unit">pt</span>
+          </div>
           <div class="color-picker-wrap">
             <button type="button" class="color-btn" onmousedown="event.preventDefault()" onclick="toggleColorPalette('anniversary', event)" title="文字顏色">
               <span class="color-btn-swatch" id="an-color-swatch" style="background:#1a1814"></span>顏色
@@ -1096,8 +1098,151 @@ function toggleColorPalette(type, event){
   document.getElementById(pfx(type)+'-color-palette').classList.toggle('open');
 }
 
+// 直接把選取範圍包成一個 <span style="...">，取代 execCommand('foreColor')。
+// execCommand 在這裡不穩定：顏色可能被瀏覽器轉成 rgb(...) 格式，導致後端合成圖片時的正則
+// 解析不到、顏色掉回預設黑色。手動包 span 才能確保這裡看到的樣式跟寄出的圖片一致
+// 找出游標所在「這一行」的範圍：用瀏覽器原生的 selection.modify(...,'lineboundary') 移到
+// 本行行首/行尾。之所以不用「往上找最近的區塊元素」判斷，是因為 contenteditable 裡的空白行
+// 不一定會是獨立的一個 <div>——很常見的情況是同一個區塊裡兩個相鄰的 <br>（例如
+// <div>Hello<br><br>World</div>），這種情況用區塊層級判斷會誤以為這一行「還有文字」
+// （因為抓到的是整個 Hello/World 都在內的區塊），導致明明游標在空白行、卻跳出「請先選取文字」
+// 的錯誤訊息。改用視覺行的行首/行尾邊界，不管空白行是獨立區塊還是 <br><br>，都能正確判斷
+function getLineBoundaryRange(range, sel){
+  const caret = range.cloneRange();
+  caret.collapse(true);
+
+  sel.removeAllRanges();
+  sel.addRange(caret.cloneRange());
+  sel.modify('move', 'backward', 'lineboundary');
+  const lineStart = sel.getRangeAt(0).cloneRange();
+
+  sel.removeAllRanges();
+  sel.addRange(caret.cloneRange());
+  sel.modify('move', 'forward', 'lineboundary');
+  const lineEnd = sel.getRangeAt(0).cloneRange();
+
+  const lineRange = document.createRange();
+  lineRange.setStart(lineStart.startContainer, lineStart.startOffset);
+  lineRange.setEnd(lineEnd.startContainer, lineEnd.startOffset);
+  return lineRange;
+}
+
+// 在指定範圍內找既有的看不見字元標記（先前調整空白行行距時插入的），只在這一行的範圍內找，
+// 避免同一個區塊裡有好幾個空白行時，誤用到別行的標記
+function findMarkerSpanInRange(lineRange){
+  const root = lineRange.commonAncestorContainer;
+  const walker = document.createTreeWalker(
+    root.nodeType === Node.TEXT_NODE ? root.parentNode : root,
+    NodeFilter.SHOW_TEXT,
+    { acceptNode(n){ return lineRange.intersectsNode(n) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT; } }
+  );
+  let n;
+  while((n = walker.nextNode())){
+    if(n.nodeValue === '​' && n.parentElement && n.parentElement.tagName === 'SPAN'){
+      return n.parentElement;
+    }
+  }
+  return null;
+}
+
+function wrapSelectionStyle(type, styleProp, styleValue){
+  const body = document.getElementById(pfx(type)+'-body');
+  body.focus();
+  const sel = window.getSelection();
+  if(savedRanges[type]){
+    sel.removeAllRanges();
+    sel.addRange(savedRanges[type]);
+  }
+  if(!sel.rangeCount || sel.getRangeAt(0).collapsed || !body.contains(sel.getRangeAt(0).commonAncestorContainer)){
+    alert('請先選取要調整的文字');
+    return;
+  }
+  const range = sel.getRangeAt(0);
+  const span = document.createElement('span');
+  span.style[styleProp] = styleValue;
+  try {
+    range.surroundContents(span);
+  } catch(e){
+    const frag = range.extractContents();
+    span.appendChild(frag);
+    range.insertNode(span);
+  }
+  sel.removeAllRanges();
+  const newRange = document.createRange();
+  newRange.selectNodeContents(span);
+  sel.addRange(newRange);
+  savedRanges[type] = newRange;
+}
+
+// 遞迴清掉範圍內所有節點既有的 inline font-size（保留粗體/斜體/顏色/底線等其他樣式）。
+// 這是「選字級要點兩次才生效」跟「全選＋空行時字級不會同步縮放」的根本原因：
+// 之前只在外層再包一層新的 span，選取範圍裡舊的、巢狀更深的 font-size 樣式權重比新的外層高，
+// 所以視覺上看不出變化、或只有部分文字改變。先把舊的字級樣式全部清乾淨，再統一套用新字級，
+// 才能保證選取範圍（包含裡面的空白行）整段跟著一起放大縮小
+function stripFontSize(node){
+  if(node.nodeType === Node.ELEMENT_NODE){
+    if(node.style) node.style.fontSize = '';
+    Array.from(node.childNodes).forEach(stripFontSize);
+  }
+}
+
+function applyFontSize(type, val){
+  const px = parseInt(val, 10);
+  if(!px || px < 6 || px > 96) return;
+  const body = document.getElementById(pfx(type)+'-body');
+  body.focus();
+  const sel = window.getSelection();
+  if(savedRanges[type]){
+    sel.removeAllRanges();
+    sel.addRange(savedRanges[type]);
+  }
+  if(!sel.rangeCount || !body.contains(sel.getRangeAt(0).commonAncestorContainer)){
+    alert('請先選取要調整的文字，或將游標移到要調整的空白行');
+    return;
+  }
+  const range = sel.getRangeAt(0);
+
+  if(range.collapsed){
+    // 空白行沒有文字可選取：塞入（或重複使用既有的）看不見字元，讓這一行也能套用字級來調整行距
+    const lineRange = getLineBoundaryRange(range, sel);
+    if(lineRange.toString().replace(/​/g, '').trim() !== ''){
+      alert('請先選取要調整的文字，或將游標移到要調整的空白行');
+      return;
+    }
+    // getLineBoundaryRange 內部呼叫過 sel.modify()，游標已經被移動過，這裡要先移回原本的位置再插入
+    sel.removeAllRanges();
+    sel.addRange(range);
+
+    const existingMarker = findMarkerSpanInRange(lineRange);
+    if(existingMarker){
+      existingMarker.style.fontSize = px + 'px';
+    } else {
+      const span = document.createElement('span');
+      span.style.fontSize = px + 'px';
+      span.appendChild(document.createTextNode('​'));
+      range.insertNode(span);
+    }
+    savedRanges[type] = null;
+    return;
+  }
+
+  // 一般文字選取（可能橫跨多行、也可能包含空白行）：抽出選取內容、清掉舊字級後，整段統一包成新字級
+  const frag = range.extractContents();
+  stripFontSize(frag);
+  const span = document.createElement('span');
+  span.style.fontSize = px + 'px';
+  span.appendChild(frag);
+  range.insertNode(span);
+
+  sel.removeAllRanges();
+  const newRange = document.createRange();
+  newRange.selectNodeContents(span);
+  sel.addRange(newRange);
+  savedRanges[type] = newRange;
+}
+
 function applyColor(type, hex){
-  rteExec(type, 'foreColor', hex);
+  wrapSelectionStyle(type, 'color', hex);
   document.getElementById(pfx(type)+'-color-swatch').style.background = hex;
   document.getElementById(pfx(type)+'-color-custom').value = hex;
   document.getElementById(pfx(type)+'-color-palette').classList.remove('open');
