@@ -1,0 +1,1277 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>員工賀卡自動寄送系統</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#1a1814;--ink2:#3d3a34;--ink3:#7a7570;
+  --paper:#faf9f6;--paper2:#f2f0eb;--paper3:#e8e5de;
+  --accent:#F47920;--accent2:#D45F0A;--accent-light:#FEF5EC;
+  --red:#8b2020;--red-light:#fde8e8;
+  --green:#1a7a3a;--green-light:#e8f5ed;
+  --blue:#1a5fa8;--blue-light:#e8f0fb;
+  --pink:#c23b7a;--pink-light:#fbe9f2;
+  --radius:4px;--radius-lg:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Noto Sans TC',sans-serif;background:var(--paper);color:var(--ink);min-height:100vh}
+input,select,textarea{font-family:'Noto Sans TC',sans-serif;font-size:14px;color:var(--ink);background:var(--paper);border:1px solid var(--paper3);border-radius:var(--radius);padding:9px 13px;width:100%;outline:none;transition:border-color .2s}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(244,121,32,.15)}
+button{font-family:'Noto Sans TC',sans-serif;cursor:pointer;border:none;border-radius:var(--radius);font-size:13px;font-weight:500;transition:all .15s}
+
+.screen{display:none;min-height:100vh}
+.screen.active{display:flex;flex-direction:column}
+
+/* ── LOGIN ── */
+#s-login{align-items:center;justify-content:center;background:var(--paper)}
+.login-wrap{width:100%;max-width:380px;padding:20px}
+.login-logo{text-align:center;margin-bottom:2rem}
+.login-logo img{height:59px;margin-bottom:.75rem}
+.login-logo h1{font-size:1.1rem;font-weight:700;color:var(--ink);margin-bottom:.25rem}
+.login-logo p{font-size:.8rem;color:var(--ink3)}
+.login-card{background:#fff;border-radius:var(--radius-lg);border:1px solid var(--paper3);padding:2rem;box-shadow:0 4px 20px rgba(0,0,0,.06)}
+.login-card h2{font-size:1rem;font-weight:700;color:var(--ink);margin-bottom:1.25rem}
+.form-group{margin-bottom:1rem}
+.form-group label{display:block;font-size:.78rem;font-weight:700;color:var(--ink2);margin-bottom:.35rem}
+.login-err{background:var(--red-light);color:var(--red);font-size:.8rem;padding:.6rem .9rem;border-radius:var(--radius);margin-bottom:.9rem;display:none}
+.btn-login{width:100%;background:var(--accent);color:#fff;padding:.75rem;font-size:.9rem;font-weight:700;border-radius:var(--radius);margin-top:.5rem}
+.btn-login:hover{background:var(--accent2)}
+
+/* ── ADMIN LAYOUT ── */
+#s-admin{flex-direction:row}
+.sidebar{width:220px;flex-shrink:0;background:#fff;border-right:1px solid var(--paper3);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto}
+.sb-logo{padding:1.2rem 1.4rem;border-bottom:1px solid var(--paper3)}
+.sb-logo img{height:34px}
+.sb-logo p{font-size:.72rem;color:var(--ink3);margin-top:.25rem}
+.sb-nav{flex:1;padding:.6rem 0}
+.nav-item{display:flex;align-items:center;gap:.6rem;padding:.65rem 1.4rem;font-size:.85rem;color:var(--ink3);cursor:pointer;transition:all .12s;border-left:3px solid transparent}
+.nav-item:hover{background:var(--paper);color:var(--ink)}
+.nav-item.active{background:var(--accent-light);color:var(--accent);border-left-color:var(--accent);font-weight:500}
+.nav-item .ni{font-size:1rem;width:18px;text-align:center}
+.sb-footer{padding:1rem 1.4rem;border-top:1px solid var(--paper3)}
+.sb-user{display:flex;align-items:center;gap:.6rem;margin-bottom:.75rem}
+.su-av{width:30px;height:30px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:.75rem;color:#fff;font-weight:700;flex-shrink:0}
+.su-name{font-size:.82rem;font-weight:500;color:var(--ink)}
+.su-role{font-size:.7rem;color:var(--ink3)}
+.btn-logout{width:100%;background:var(--paper2);color:var(--ink2);padding:.55rem;border-radius:var(--radius);font-size:.8rem}
+.btn-logout:hover{background:var(--paper3)}
+
+.admin-main{flex:1;overflow-y:auto}
+.tab-content{display:none;padding:2rem 2.25rem;max-width:1080px}
+.tab-content.active{display:block}
+.page-title{font-size:1.4rem;font-weight:700;margin-bottom:.25rem}
+.page-sub{font-size:.85rem;color:var(--ink3);margin-bottom:1.75rem}
+
+/* DASHBOARD SUB-NAV (生日賀卡 / 週年賀卡 切換) */
+.dash-subnav{display:flex;gap:.5rem;margin-bottom:1.5rem;border-bottom:1px solid var(--paper3)}
+.dash-subnav-item{padding:.6rem 1rem;font-size:.95rem;font-weight:700;color:var(--ink3);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .12s}
+.dash-subnav-item:hover{color:var(--ink)}
+.dash-subnav-item.active{color:var(--accent);border-bottom-color:var(--accent)}
+.dash-sub{display:none}
+.dash-sub.active{display:block}
+
+/* STAT CARDS */
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.75rem}
+.stat-card{background:#fff;border:1px solid var(--paper3);border-radius:var(--radius-lg);padding:1.1rem 1.25rem}
+.sc-val{font-size:1.75rem;font-weight:700;margin-bottom:.2rem}
+.sc-val.red{color:var(--red)}.sc-val.green{color:var(--green)}.sc-val.blue{color:var(--blue)}.sc-val.ink{color:var(--ink)}.sc-val.pink{color:var(--pink)}
+.sc-lbl{font-size:.75rem;color:var(--ink3)}
+
+/* TABLE */
+.table-wrap{background:#fff;border:1px solid var(--paper3);border-radius:var(--radius-lg);overflow:hidden}
+.table-head{padding:1rem 1.25rem;border-bottom:1px solid var(--paper3);display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap}
+.table-head h3{font-size:.95rem;font-weight:700}
+.table-actions{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap}
+.search-box{position:relative}
+.search-box input{padding:.5rem .75rem .5rem 2rem;font-size:.82rem;width:200px}
+.search-box .si{position:absolute;left:.6rem;top:50%;transform:translateY(-50%);color:var(--ink3);font-size:.85rem}
+.filter-select{width:130px;padding:.5rem .75rem;font-size:.82rem}
+table{width:100%;border-collapse:collapse}
+th{font-size:.75rem;font-weight:700;color:var(--ink3);text-align:left;padding:.65rem 1rem;background:var(--paper2);border-bottom:1px solid var(--paper3);white-space:nowrap}
+th.sortable-th{cursor:pointer;user-select:none}
+th.sortable-th:hover{color:var(--accent)}
+td{font-size:.85rem;padding:.75rem 1rem;border-bottom:1px solid var(--paper3);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--paper)}
+.badge{display:inline-flex;align-items:center;font-size:.75rem;font-weight:700;padding:.2rem .65rem;border-radius:12px}
+.badge.pass{background:var(--green-light);color:var(--green)}
+.badge.fail{background:var(--red-light);color:var(--red)}
+.badge.wait{background:var(--blue-light);color:var(--blue)}
+.table-empty{padding:3rem;text-align:center;color:var(--ink3);font-size:.9rem}
+
+/* BUTTONS */
+.btn-sm{padding:.45rem .9rem;font-size:.78rem}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent2)}
+.btn-secondary{background:transparent;color:var(--ink2);border:1px solid var(--paper3)}
+.btn-secondary:hover{background:var(--paper2)}
+.btn-green{background:var(--green);color:#fff}
+.btn-green:hover{background:#14602e}
+.btn-danger{background:var(--red);color:#fff}
+.btn-danger:hover{background:#6b1818}
+
+/* LOADING */
+.loading-wrap{padding:4rem;text-align:center;color:var(--ink3)}
+.spinner{display:inline-block;width:28px;height:28px;border:3px solid var(--paper3);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin-bottom:.75rem}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* MODAL */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;align-items:center;justify-content:center;padding:1.5rem}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border-radius:var(--radius-lg);width:100%;max-width:560px;max-height:88vh;overflow:hidden;display:flex;flex-direction:column}
+.modal.wide{max-width:640px}
+.modal-head{padding:1.1rem 1.4rem;border-bottom:1px solid var(--paper3);display:flex;align-items:center;justify-content:space-between}
+.modal-head h3{font-size:1rem;font-weight:700}
+.btn-close{background:var(--paper2);color:var(--ink2);width:28px;height:28px;border-radius:50%;font-size:1.1rem;display:flex;align-items:center;justify-content:center}
+.modal-body{padding:1.4rem;overflow-y:auto;flex:1}
+.modal-foot{padding:1rem 1.4rem;border-top:1px solid var(--paper3);display:flex;justify-content:flex-end;gap:.6rem}
+
+/* CONFIG */
+.config-card{background:#fff;border:1px solid var(--paper3);border-radius:var(--radius-lg);padding:1.4rem;margin-bottom:1rem}
+.config-card h3{font-size:.95rem;font-weight:700;margin-bottom:1rem;padding-bottom:.6rem;border-bottom:1px solid var(--paper3)}
+.config-row{display:flex;align-items:center;gap:1rem;margin-bottom:.9rem;flex-wrap:wrap}
+.config-row label{font-size:.85rem;color:var(--ink2);width:160px;flex-shrink:0}
+.config-row input,.config-row select{max-width:220px}
+.config-hint{font-size:.75rem;color:var(--ink3);margin-top:.25rem;line-height:1.5}
+
+/* ADMIN MANAGEMENT */
+.admin-list{display:flex;flex-direction:column;gap:0}
+.admin-row{display:flex;align-items:center;gap:1rem;padding:1rem 1.4rem;border-bottom:1px solid var(--paper3)}
+.admin-row:last-child{border-bottom:none}
+.admin-av{width:38px;height:38px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:.9rem;color:#fff;font-weight:700;flex-shrink:0}
+.admin-info{flex:1;min-width:0}
+.admin-name{font-size:.9rem;font-weight:700;color:var(--ink)}
+.admin-meta{font-size:.78rem;color:var(--ink3);margin-top:.15rem}
+.admin-actions{display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.role-badge{font-size:.72rem;font-weight:700;padding:.2rem .75rem;border-radius:12px;background:var(--accent-light);color:var(--accent2);border:1px solid rgba(244,121,32,.25)}
+
+/* MODAL FORM */
+.modal-form .form-group{margin-bottom:1rem}
+.modal-form label{display:block;font-size:.78rem;font-weight:700;color:var(--ink2);margin-bottom:.35rem}
+.modal-form input,.modal-form select{width:100%}
+.form-hint{font-size:.72rem;color:var(--ink3);margin-top:.25rem}
+
+/* UPLOAD ZONE */
+.upload-zone{border:2px dashed var(--paper3);border-radius:var(--radius-lg);padding:2rem;text-align:center;cursor:pointer;transition:border-color .2s}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--accent);background:var(--accent-light)}
+.upload-zone p{color:var(--ink3);font-size:.85rem;margin-top:.5rem}
+.upload-zone input[type=file]{display:none}
+.card-preview-wrap{background:var(--paper2);border-radius:var(--radius-lg);padding:1.5rem;text-align:center;margin-bottom:1rem}
+.card-preview-wrap img{max-width:100%;max-height:260px;border-radius:var(--radius);box-shadow:0 2px 12px rgba(0,0,0,.1)}
+.card-preview-empty{color:var(--ink3);font-size:.85rem;padding:2rem}
+
+/* GALLERY */
+.gallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:1rem}
+.gallery-item{border:2px solid var(--paper3);border-radius:var(--radius-lg);overflow:hidden;cursor:pointer;transition:border-color .15s;background:#fff;position:relative}
+.gallery-item:hover{border-color:var(--accent)}
+.gallery-item.active{border-color:var(--accent);box-shadow:0 0 0 3px rgba(244,121,32,.18)}
+.gallery-item img{width:100%;aspect-ratio:3/2;object-fit:cover;display:block;background:var(--paper2)}
+.gallery-item .gi-name{font-size:.72rem;color:var(--ink2);padding:.5rem .6rem;border-top:1px solid var(--paper3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gallery-item .gi-badge{position:absolute;top:.4rem;left:.4rem;background:var(--accent);color:#fff;font-size:.68rem;font-weight:700;padding:.15rem .55rem;border-radius:10px}
+.gallery-item .gi-del{position:absolute;top:.4rem;right:.4rem;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;font-size:.7rem;display:flex;align-items:center;justify-content:center}
+.gallery-item .gi-del:hover{background:var(--red)}
+
+/* PLACEHOLDER CHIPS */
+.ph-chips{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.5rem}
+.ph-chip{background:var(--paper2);color:var(--ink2);border:1px solid var(--paper3);padding:.3rem .7rem;border-radius:12px;font-size:.75rem;cursor:pointer}
+.ph-chip:hover{background:var(--accent-light);color:var(--accent2);border-color:var(--accent)}
+
+/* RICH TEXT EDITOR */
+.rte-toolbar{display:flex;gap:.35rem;align-items:center;flex-wrap:wrap;background:var(--paper2);border:1px solid var(--paper3);border-bottom:none;border-radius:var(--radius) var(--radius) 0 0;padding:.5rem .6rem}
+.rte-toolbar button{background:#fff;border:1px solid var(--paper3);color:var(--ink2);width:30px;height:30px;font-size:.85rem;border-radius:var(--radius)}
+.rte-toolbar button:hover{background:var(--accent-light);border-color:var(--accent);color:var(--accent2)}
+.rte-toolbar select{width:auto;padding:.3rem;font-size:.78rem;height:30px}
+.rte-body:focus{border-color:var(--accent)}
+
+/* COLOR PICKER（點色塊選色，取代原生調色盤） */
+.color-picker-wrap{position:relative}
+.color-btn{display:flex;align-items:center;gap:.4rem;width:auto!important;height:30px;padding:0 .6rem;font-size:.78rem;color:var(--ink2)}
+.color-btn-swatch{width:15px;height:15px;border-radius:50%;border:1px solid rgba(0,0,0,.15);flex-shrink:0}
+.color-palette{display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:20;background:#fff;border:1px solid var(--paper3);border-radius:var(--radius-lg);box-shadow:0 6px 20px rgba(0,0,0,.12);padding:.75rem;width:200px}
+.color-palette.open{display:block}
+.color-swatch-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:.4rem}
+.color-swatch{width:24px;height:24px;border-radius:50%;border:1px solid rgba(0,0,0,.12);cursor:pointer}
+.color-swatch:hover{transform:scale(1.15);box-shadow:0 0 0 2px rgba(0,0,0,.08)}
+.color-palette-custom{display:flex;align-items:center;justify-content:space-between;margin-top:.65rem;padding-top:.65rem;border-top:1px solid var(--paper3);font-size:.78rem;color:var(--ink3)}
+.color-palette-custom input[type=color]{width:32px;height:26px;padding:0;border:1px solid var(--paper3);border-radius:var(--radius);cursor:pointer}
+
+/* CARD CANVAS：內文直接疊在賀卡圖片上編輯，寄信時後端會用 Google 簡報把兩者合成成一張
+   圖片再寄出，所以這裡的疊圖預覽跟實際收到的信件是一致的（而非用瀏覽器 CSS 硬疊） */
+.card-canvas{position:relative;width:100%;max-width:640px;aspect-ratio:3/2;background:var(--paper2);border:1px solid var(--paper3);border-top:none;border-radius:0 0 var(--radius) var(--radius);overflow:hidden}
+.card-canvas .card-canvas-img{position:absolute;inset:0;background-size:cover;background-position:center;background-repeat:no-repeat}
+.card-canvas .rte-body{position:absolute;top:5%;left:5%;right:5%;bottom:4%;padding:3% 4%;font-size:1.05rem;line-height:1.5;outline:none;overflow:auto;color:#1a1814;font-family:'Noto Sans TC',sans-serif}
+.card-canvas .card-canvas-empty-msg{display:none;position:absolute;inset:0;align-items:center;justify-content:center;text-align:center;color:var(--ink3);font-size:.85rem;padding:2rem}
+.card-canvas.empty .rte-body{display:none}
+.card-canvas.empty .card-canvas-empty-msg{display:flex}
+
+/* CHIP LIST (BCC) */
+.chip-list{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:.75rem;min-height:32px}
+.chip{display:flex;align-items:center;gap:.4rem;background:var(--accent-light);color:var(--accent2);border:1px solid rgba(244,121,32,.25);padding:.3rem .5rem .3rem .8rem;border-radius:14px;font-size:.8rem}
+.chip .x{cursor:pointer;font-weight:700;width:16px;height:16px;border-radius:50%;background:rgba(0,0,0,.06);display:flex;align-items:center;justify-content:center;font-size:.7rem}
+.chip .x:hover{background:rgba(139,32,32,.15);color:var(--red)}
+.chip-input-row{display:flex;gap:.6rem}
+.chip-input-row input{flex:1}
+
+/* TOGGLE */
+.toggle-row{display:flex;align-items:center;gap:.75rem}
+.toggle{position:relative;display:inline-block;width:44px;height:24px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0}
+.toggle-slider{position:absolute;cursor:pointer;inset:0;background:var(--paper3);border-radius:24px;transition:.2s}
+.toggle-slider:before{content:"";position:absolute;height:18px;width:18px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s}
+.toggle input:checked + .toggle-slider{background:var(--accent)}
+.toggle input:checked + .toggle-slider:before{transform:translateX(20px)}
+
+/* PREVIEW MODAL */
+.preview-frame{background:var(--paper2);border-radius:var(--radius-lg);padding:1.5rem}
+</style>
+</head>
+<body>
+
+<!-- ═══════ LOGIN ═══════ -->
+<div id="s-login" class="screen active">
+  <div class="login-wrap">
+    <div class="login-logo">
+      <img src="data:image/webp;base64,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" alt="敦新科技">
+      <h1>員工賀卡自動寄送系統</h1>
+      <p>人資管理後台</p>
+    </div>
+    <div class="login-card">
+      <h2>🔐 管理員登入</h2>
+      <div class="login-err" id="login-err">帳號或密碼錯誤，請重試</div>
+      <div class="form-group"><label>帳號</label><input type="text" id="login-user" placeholder="請輸入帳號" value="admin"></div>
+      <div class="form-group"><label>密碼</label><input type="password" id="login-pwd" placeholder="請輸入密碼" onkeydown="if(event.key==='Enter')doLogin()"></div>
+      <button class="btn-login" onclick="doLogin()">登入</button>
+      <div style="margin-top:1rem;font-size:.75rem;color:var(--ink3);text-align:center">預設密碼請於 Apps Script 試算表「管理員」工作表中修改</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ ADMIN ═══════ -->
+<div id="s-admin" class="screen">
+  <div class="sidebar">
+    <div class="sb-logo">
+      <img src="data:image/webp;base64,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" alt="敦新科技">
+      <p>員工賀卡管理系統</p>
+    </div>
+    <nav class="sb-nav">
+      <div class="nav-item active" onclick="showTab('dashboard')"><span class="ni">📊</span>儀表板</div>
+      <div class="nav-item" onclick="showTab('employees');loadEmployees()"><span class="ni">🎂</span>員工資料</div>
+      <div class="nav-item" onclick="showTab('bdcard');loadCardManagement('birthday')"><span class="ni">🎁</span>生日賀卡管理</div>
+      <div class="nav-item" onclick="showTab('annivcard');loadCardManagement('anniversary')"><span class="ni">🏆</span>周年賀卡管理</div>
+      <div class="nav-item" onclick="showTab('sendsettings');loadSendSettings('birthday');loadSendSettings('anniversary')"><span class="ni">⏰</span>寄送設定</div>
+      <div class="nav-item" onclick="showTab('sendlog');loadSendLog()"><span class="ni">📜</span>寄送紀錄</div>
+      <div class="nav-item" onclick="showTab('admins');loadAdminsFromGS()"><span class="ni">👤</span>管理員設定</div>
+    </nav>
+    <div class="sb-footer">
+      <div class="sb-user">
+        <div class="su-av" id="sb-avatar">A</div>
+        <div><div class="su-name" id="sb-name">管理員</div><div class="su-role">Administrator</div></div>
+      </div>
+      <button class="btn-logout" onclick="doLogout()">登出</button>
+    </div>
+  </div>
+
+  <div class="admin-main">
+
+    <!-- DASHBOARD -->
+    <div class="tab-content active" id="tab-dashboard">
+      <div class="page-title">儀表板</div>
+      <div class="page-sub" id="dash-updated">載入中…</div>
+
+      <div class="dash-subnav">
+        <div class="dash-subnav-item active" id="dash-subnav-bday" onclick="showDashSub('bday')">🎂 生日賀卡</div>
+        <div class="dash-subnav-item" id="dash-subnav-anniv" onclick="showDashSub('anniv')">🏆 週年賀卡</div>
+      </div>
+
+      <div class="dash-sub active" id="dash-sub-bday">
+        <div class="stat-grid" id="stat-grid">
+          <div class="stat-card"><div class="sc-val ink" id="st-total">—</div><div class="sc-lbl">員工總數</div></div>
+          <div class="stat-card"><div class="sc-val blue" id="st-upcoming">—</div><div class="sc-lbl">30 天內壽星</div></div>
+          <div class="stat-card"><div class="sc-val green" id="st-sent">—</div><div class="sc-lbl">今年已寄送</div></div>
+          <div class="stat-card"><div class="sc-val pink" id="st-schedule">—</div><div class="sc-lbl">自動寄送狀態</div></div>
+        </div>
+        <div class="table-wrap">
+          <div class="table-head"><h3>近期生日提醒（未來 30 天）</h3><button class="btn-sm btn-primary" onclick="showTab('employees');loadEmployees()">查看全部 →</button></div>
+          <div id="dash-upcoming"><div class="loading-wrap"><div class="spinner"></div><div>資料載入中…</div></div></div>
+        </div>
+      </div>
+
+      <div class="dash-sub" id="dash-sub-anniv">
+        <div class="stat-grid">
+          <div class="stat-card"><div class="sc-val ink" id="st-anniv-total">—</div><div class="sc-lbl">員工總數</div></div>
+          <div class="stat-card"><div class="sc-val blue" id="st-anniv-upcoming">—</div><div class="sc-lbl">30 天內到職週年</div></div>
+          <div class="stat-card"><div class="sc-val green" id="st-anniv-sent">—</div><div class="sc-lbl">今年已寄送</div></div>
+          <div class="stat-card"><div class="sc-val pink" id="st-anniv-schedule">—</div><div class="sc-lbl">自動寄送狀態</div></div>
+        </div>
+        <div class="table-wrap">
+          <div class="table-head"><h3>近期到職週年提醒（未來 30 天）</h3><button class="btn-sm btn-primary" onclick="showTab('employees');loadEmployees()">查看全部 →</button></div>
+          <div id="dash-anniv-upcoming"><div class="loading-wrap"><div class="spinner"></div><div>資料載入中…</div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- EMPLOYEES -->
+    <div class="tab-content" id="tab-employees">
+      <div class="page-title">員工資料</div>
+      <div class="page-sub">由 Google 試算表「員工資料」工作表讀取（含到職日與年資），如需新增／修改／刪除員工，請直接於試算表編輯後按「重新整理」</div>
+      <div class="table-wrap">
+        <div class="table-head">
+          <h3>員工列表 <span id="emp-count" style="font-size:.8rem;font-weight:400;color:var(--ink3)"></span></h3>
+          <div class="table-actions">
+            <div class="search-box"><span class="si">🔍</span><input type="text" id="emp-search" placeholder="搜尋姓名、部門、工號…" oninput="filterEmployees()"></div>
+            <select class="filter-select" id="emp-filter" onchange="filterEmployees()">
+              <option value="">全部狀態</option>
+              <option value="sent">今年已寄送</option>
+              <option value="pending">今年未寄送</option>
+            </select>
+            <button class="btn-sm btn-secondary" onclick="loadEmployees()">🔄 重新整理</button>
+          </div>
+        </div>
+        <div id="emp-table-wrap"><div class="loading-wrap"><div class="spinner"></div><div>資料載入中…</div></div></div>
+      </div>
+    </div>
+
+    <!-- BIRTHDAY CARD MANAGEMENT -->
+    <div class="tab-content" id="tab-bdcard">
+      <div class="page-title">生日賀卡管理</div>
+      <div class="page-sub">上傳/選擇圖片並編寫主旨與內文，圖片庫獨立存放於 Google Drive「員工生日賀卡圖片」資料夾</div>
+      <div class="config-card">
+        <h3>主旨</h3>
+        <input type="text" id="bd-subject" placeholder="例如：🎉 {{姓名}}，生日快樂！">
+        <div class="ph-chips">
+          <span class="ph-chip" onclick="insertPlaceholder('bd-subject','{{姓名}}')">{{姓名}}</span>
+          <span class="ph-chip" onclick="insertPlaceholder('bd-subject','{{部門}}')">{{部門}}</span>
+          <span class="ph-chip" onclick="insertPlaceholder('bd-subject','{{工號}}')">{{工號}}</span>
+          <span class="ph-chip" onclick="insertPlaceholder('bd-subject','{{生日}}')">{{生日}}</span>
+        </div>
+      </div>
+
+      <div class="config-card">
+        <h3>內文（直接寫在賀卡圖片上）</h3>
+        <div class="config-hint" style="margin:0 0 .75rem">底圖為下方目前使用中的圖片，文字會直接疊在圖片上。寄送時後端會把圖片與內文合成成一張圖片再寄出，確保 Outlook 等所有信箱都能正確顯示疊圖效果，跟這裡看到的一致</div>
+        <div class="rte-toolbar">
+          <button type="button" onmousedown="event.preventDefault()" onclick="rteExec('birthday','bold')"><b>B</b></button>
+          <button type="button" onmousedown="event.preventDefault()" onclick="rteExec('birthday','italic')"><i>I</i></button>
+          <button type="button" onmousedown="event.preventDefault()" onclick="rteExec('birthday','underline')"><u>U</u></button>
+          <select onchange="rteExec('birthday','fontSize', this.value)">
+            <option value="">字級</option>
+            <option value="2">小</option>
+            <option value="3" selected>正常</option>
+            <option value="5">大</option>
+            <option value="7">特大</option>
+          </select>
+          <div class="color-picker-wrap">
+            <button type="button" class="color-btn" onmousedown="event.preventDefault()" onclick="toggleColorPalette('birthday', event)" title="文字顏色">
+              <span class="color-btn-swatch" id="bd-color-swatch" style="background:#1a1814"></span>顏色
+            </button>
+            <div class="color-palette" id="bd-color-palette">
+              <div class="color-swatch-grid" id="bd-color-grid"></div>
+              <div class="color-palette-custom">
+                <span>自訂顏色</span>
+                <input type="color" id="bd-color-custom" value="#1a1814" oninput="applyColor('birthday', this.value)">
+              </div>
+            </div>
+          </div>
+          <button type="button" onmousedown="event.preventDefault()" onclick="rteExec('birthday','justifyLeft')">⯇</button>
+          <button type="button" onmousedown="event.preventDefault()" onclick="rteExec('birthday','justifyCenter')">☰</button>
+          <button type="button" onmousedown="event.preventDefault()" onclick="rteExec('birthday','justifyRight')">⯈</button>
+        </div>
+        <div class="card-canvas" id="bd-canvas">
+          <div class="card-canvas-img" id="bd-canvas-img"></div>
+          <div class="card-canvas-empty-msg" id="bd-canvas-empty">尚未選擇賀卡圖片，請先於下方選擇一張圖片</div>
+          <div class="rte-body" id="bd-body" contenteditable="true"></div>
+        </div>
+        <div class="ph-chips">
+          <span class="ph-chip" onclick="insertPlaceholder('bd-body','{{姓名}}')">{{姓名}}</span>
+          <span class="ph-chip" onclick="insertPlaceholder('bd-body','{{部門}}')">{{部門}}</span>
+          <span class="ph-chip" onclick="insertPlaceholder('bd-body','{{工號}}')">{{工號}}</span>
+          <span class="ph-chip" onclick="insertPlaceholder('bd-body','{{生日}}')">{{生日}}</span>
+        </div>
+      </div>
+
+      <div class="config-card">
+        <h3>目前使用中的賀卡圖片</h3>
+        <div class="card-preview-wrap" id="bd-img-preview">
+          <div class="card-preview-empty">尚未選擇賀卡圖片</div>
+        </div>
+        <div style="display:flex;gap:.6rem;margin-top:1rem">
+          <button class="btn-sm btn-danger" onclick="removeCardImage('birthday')">清除目前圖片（不寄送圖片）</button>
+        </div>
+        <div class="config-hint" id="bd-img-status"></div>
+      </div>
+
+      <div class="config-card">
+        <h3>圖庫 <button class="btn-sm btn-secondary" style="float:right" onclick="loadImageLibrary('birthday')">🔄 重新整理</button></h3>
+        <div class="config-hint" style="margin:0 0 .75rem">顯示 Google Drive「員工生日賀卡圖片」資料夾中的所有圖片，點擊即可套用，也可直接在 Drive 裡新增/刪除圖片</div>
+        <div class="gallery-grid" id="bd-gallery"><div class="loading-wrap"><div class="spinner"></div><div>圖庫載入中…</div></div></div>
+      </div>
+
+      <div class="config-card">
+        <h3>上傳新圖片</h3>
+        <div class="upload-zone" id="bd-upload-zone" onclick="document.getElementById('bd-img-input').click()">
+          <div style="font-size:1.8rem">📤</div>
+          <p>點擊選擇圖片，或將圖片拖曳到此處<br>建議尺寸 600×400px，支援 JPG / PNG，上傳後會自動加入上方圖庫並設為使用中</p>
+          <input type="file" id="bd-img-input" accept="image/*" onchange="handleImageSelect('birthday', this.files)">
+        </div>
+      </div>
+
+      <div style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap">
+        <button class="btn-sm btn-secondary" onclick="openPreview('birthday')">👁 預覽賀卡</button>
+        <button class="btn-sm btn-primary" onclick="saveCardContent('birthday')">💾 儲存內文設定</button>
+        <button class="btn-sm btn-secondary" onclick="testRenderCard('birthday')">🔧 測試圖片合成</button>
+        <span class="config-hint" id="bd-cc-status"></span>
+      </div>
+      <div id="bd-render-result" style="margin-top:1rem"></div>
+    </div>
+
+    <!-- ANNIVERSARY CARD MANAGEMENT -->
+    <div class="tab-content" id="tab-annivcard">
+      <div class="page-title">周年賀卡管理</div>
+      <div class="page-sub">上傳/選擇圖片並編寫主旨與內文，圖片庫獨立存放於 Google Drive「員工到職週年賀卡圖片」資料夾</div>
+      <div class="config-card">
+        <h3>主旨</h3>
+        <input type="text" id="an-subject" placeholder="例如：🎊 {{姓名}}，感謝您服務滿 {{年資}} 週年！">
+        <div class="ph-chips">
+          <span class="ph-chip" onclick="insertPlaceholder('an-subject','{{姓名}}')">{{姓名}}</span>
+          <span class="ph-chip" onclick="insertPlaceholder('an-subject','{{部門}}')">{{部門}}</span>
+          <span class="ph-chip" onclick="insertPlaceholder('an-subject','{{工號}}')">{{工號}}</span>
+          <span class="ph-chip" onclick="insertPlaceholder('an-subject','{{到職日}}')">{{到職日}}</span>
+          <span class="ph-chip" onclick="insertPlaceholder('an-subject','{{年資}}')">{{年資}}</span>
+        </div>
+      </div>
+
+      <div class="config-card">
+        <h3>內文（直接寫在賀卡圖片上）</h3>
+        <div class="config-hint" style="margin:0 0 .75rem">底圖為下方目前使用中的圖片，文字會直接疊在圖片上。寄送時後端會把圖片與內文合成成一張圖片再寄出，確保 Outlook 等所有信箱都能正確顯示疊圖效果，跟這裡看到的一致</div>
+        <div class="rte-toolbar">
+          <button type="button" onmousedown="event.preventDefault()" onclick="rteExec('anniversary','bold')"><b>B</b></button>
+          <button type="button" onmousedown="event.preventDefault()" onclick="rteExec('anniversary','italic')"><i>I</i></button>
+          <button type="button" onmousedown="event.preventDefault()" onclick="rteExec('anniversary','underline')"><u>U</u></button>
+          <select onchange="rteExec('anniversary','fontSize', this.value)">
+            <option value="">字級</option>
+            <option value="2">小</option>
+            <option value="3" selected>正常</option>
+            <option value="5">大</option>
+            <option value="7">特大</option>
+          </select>
+          <div class="color-picker-wrap">
+            <button type="button" class="color-btn" onmousedown="event.preventDefault()" onclick="toggleColorPalette('anniversary', event)" title="文字顏色">
+              <span class="color-btn-swatch" id="an-color-swatch" style="background:#1a1814"></span>顏色
+            </button>
+            <div class="color-palette" id="an-color-palette">
+              <div class="color-swatch-grid" id="an-color-grid"></div>
+              <div class="color-palette-custom">
+                <span>自訂顏色</span>
+                <input type="color" id="an-color-custom" value="#1a1814" oninput="applyColor('anniversary', this.value)">
+              </div>
+            </div>
+          </div>
+          <button type="button" onmousedown="event.preventDefault()" onclick="rteExec('anniversary','justifyLeft')">⯇</button>
+          <button type="button" onmousedown="event.preventDefault()" onclick="rteExec('anniversary','justifyCenter')">☰</button>
+          <button type="button" onmousedown="event.preventDefault()" onclick="rteExec('anniversary','justifyRight')">⯈</button>
+        </div>
+        <div class="card-canvas" id="an-canvas">
+          <div class="card-canvas-img" id="an-canvas-img"></div>
+          <div class="card-canvas-empty-msg" id="an-canvas-empty">尚未選擇賀卡圖片，請先於下方選擇一張圖片</div>
+          <div class="rte-body" id="an-body" contenteditable="true"></div>
+        </div>
+        <div class="ph-chips">
+          <span class="ph-chip" onclick="insertPlaceholder('an-body','{{姓名}}')">{{姓名}}</span>
+          <span class="ph-chip" onclick="insertPlaceholder('an-body','{{部門}}')">{{部門}}</span>
+          <span class="ph-chip" onclick="insertPlaceholder('an-body','{{工號}}')">{{工號}}</span>
+          <span class="ph-chip" onclick="insertPlaceholder('an-body','{{到職日}}')">{{到職日}}</span>
+          <span class="ph-chip" onclick="insertPlaceholder('an-body','{{年資}}')">{{年資}}</span>
+        </div>
+      </div>
+
+      <div class="config-card">
+        <h3>目前使用中的賀卡圖片</h3>
+        <div class="card-preview-wrap" id="an-img-preview">
+          <div class="card-preview-empty">尚未選擇賀卡圖片</div>
+        </div>
+        <div style="display:flex;gap:.6rem;margin-top:1rem">
+          <button class="btn-sm btn-danger" onclick="removeCardImage('anniversary')">清除目前圖片（不寄送圖片）</button>
+        </div>
+        <div class="config-hint" id="an-img-status"></div>
+      </div>
+
+      <div class="config-card">
+        <h3>圖庫 <button class="btn-sm btn-secondary" style="float:right" onclick="loadImageLibrary('anniversary')">🔄 重新整理</button></h3>
+        <div class="config-hint" style="margin:0 0 .75rem">顯示 Google Drive「員工到職週年賀卡圖片」資料夾中的所有圖片，點擊即可套用，也可直接在 Drive 裡新增/刪除圖片</div>
+        <div class="gallery-grid" id="an-gallery"><div class="loading-wrap"><div class="spinner"></div><div>圖庫載入中…</div></div></div>
+      </div>
+
+      <div class="config-card">
+        <h3>上傳新圖片</h3>
+        <div class="upload-zone" id="an-upload-zone" onclick="document.getElementById('an-img-input').click()">
+          <div style="font-size:1.8rem">📤</div>
+          <p>點擊選擇圖片，或將圖片拖曳到此處<br>建議尺寸 600×400px，支援 JPG / PNG，上傳後會自動加入上方圖庫並設為使用中</p>
+          <input type="file" id="an-img-input" accept="image/*" onchange="handleImageSelect('anniversary', this.files)">
+        </div>
+      </div>
+
+      <div style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap">
+        <button class="btn-sm btn-secondary" onclick="openPreview('anniversary')">👁 預覽賀卡</button>
+        <button class="btn-sm btn-primary" onclick="saveCardContent('anniversary')">💾 儲存內文設定</button>
+        <button class="btn-sm btn-secondary" onclick="testRenderCard('anniversary')">🔧 測試圖片合成</button>
+        <span class="config-hint" id="an-cc-status"></span>
+      </div>
+      <div id="an-render-result" style="margin-top:1rem"></div>
+    </div>
+
+    <!-- SEND SETTINGS -->
+    <div class="tab-content" id="tab-sendsettings">
+      <div class="page-title">寄送設定</div>
+      <div class="page-sub">設定生日賀卡與週年賀卡各自的自動寄送規則與密件副本收件人</div>
+
+      <div class="config-card">
+        <h3>🎂 生日賀卡寄送設定</h3>
+        <div class="config-row" style="align-items:flex-start">
+          <label>密件副本（BCC）</label>
+          <div style="flex:1;min-width:220px">
+            <div class="chip-list" id="bd-bcc-chips"></div>
+            <div class="chip-input-row">
+              <input type="email" id="bd-bcc-input" placeholder="輸入 Email 後按新增" onkeydown="if(event.key==='Enter'){event.preventDefault();addBcc('birthday');}">
+              <button class="btn-sm btn-primary" onclick="addBcc('birthday')">新增</button>
+            </div>
+          </div>
+        </div>
+        <div class="config-row">
+          <label>生日前幾天寄送</label>
+          <input type="number" id="bd-daysbefore" min="0" max="30" value="0" style="max-width:100px">
+          <span class="config-hint" style="margin:0">0 表示於生日當天寄送</span>
+        </div>
+        <div class="config-row">
+          <label>每日寄送時間</label>
+          <select id="bd-hour" style="max-width:140px"></select>
+          <span class="config-hint" style="margin:0">系統將於每日此時段自動檢查並寄送賀卡</span>
+        </div>
+        <div class="config-row">
+          <label>啟用自動寄送</label>
+          <div class="toggle-row">
+            <label class="toggle"><input type="checkbox" id="bd-enabled"><span class="toggle-slider"></span></label>
+            <span class="config-hint" id="bd-enabled-label" style="margin:0">停用中</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:.6rem;margin-top:.5rem">
+          <button class="btn-sm btn-primary" onclick="saveSendSettings('birthday')">💾 儲存設定</button>
+          <button class="btn-sm btn-secondary" onclick="runSendNow('birthday')">▶ 立即執行一次寄送檢查</button>
+        </div>
+        <div class="config-hint" id="bd-send-status" style="margin-top:.75rem"></div>
+      </div>
+
+      <div class="config-card">
+        <h3>🏆 週年賀卡寄送設定</h3>
+        <div class="config-row" style="align-items:flex-start">
+          <label>密件副本（BCC）</label>
+          <div style="flex:1;min-width:220px">
+            <div class="chip-list" id="an-bcc-chips"></div>
+            <div class="chip-input-row">
+              <input type="email" id="an-bcc-input" placeholder="輸入 Email 後按新增" onkeydown="if(event.key==='Enter'){event.preventDefault();addBcc('anniversary');}">
+              <button class="btn-sm btn-primary" onclick="addBcc('anniversary')">新增</button>
+            </div>
+          </div>
+        </div>
+        <div class="config-row">
+          <label>到職週年前幾天寄送</label>
+          <input type="number" id="an-daysbefore" min="0" max="30" value="0" style="max-width:100px">
+          <span class="config-hint" style="margin:0">0 表示於到職週年當天寄送</span>
+        </div>
+        <div class="config-row">
+          <label>每日寄送時間</label>
+          <select id="an-hour" style="max-width:140px"></select>
+          <span class="config-hint" style="margin:0">系統將於每日此時段自動檢查並寄送賀卡</span>
+        </div>
+        <div class="config-row">
+          <label>啟用自動寄送</label>
+          <div class="toggle-row">
+            <label class="toggle"><input type="checkbox" id="an-enabled"><span class="toggle-slider"></span></label>
+            <span class="config-hint" id="an-enabled-label" style="margin:0">停用中</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:.6rem;margin-top:.5rem">
+          <button class="btn-sm btn-primary" onclick="saveSendSettings('anniversary')">💾 儲存設定</button>
+          <button class="btn-sm btn-secondary" onclick="runSendNow('anniversary')">▶ 立即執行一次寄送檢查</button>
+        </div>
+        <div class="config-hint" id="an-send-status" style="margin-top:.75rem"></div>
+      </div>
+    </div>
+
+    <!-- SEND LOG -->
+    <div class="tab-content" id="tab-sendlog">
+      <div class="page-title">寄送紀錄</div>
+      <div class="page-sub">已成功寄出的生日賀卡歷史紀錄</div>
+      <div class="table-wrap">
+        <div class="table-head">
+          <h3>紀錄列表 <span id="log-count" style="font-size:.8rem;font-weight:400;color:var(--ink3)"></span></h3>
+          <div class="table-actions">
+            <button class="btn-sm btn-secondary" onclick="loadSendLog()">🔄 重新整理</button>
+          </div>
+        </div>
+        <div id="log-table-wrap"><div class="loading-wrap"><div class="spinner"></div><div>資料載入中…</div></div></div>
+      </div>
+    </div>
+
+    <!-- ADMINS -->
+    <div class="tab-content" id="tab-admins">
+      <div class="page-title">管理員設定</div>
+      <div class="page-sub">管理系統管理員帳號</div>
+      <div class="table-wrap">
+        <div class="table-head">
+          <h3>管理員列表</h3>
+          <div class="table-actions">
+            <button class="btn-sm btn-primary" onclick="openAdminModal()">＋ 新增管理員</button>
+          </div>
+        </div>
+        <div class="admin-list" id="admin-list"><div class="loading-wrap"><div class="spinner"></div><div>資料載入中…</div></div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════ MODAL: ADMIN FORM ═══════ -->
+<div class="modal-overlay" id="modal-admin">
+  <div class="modal">
+    <div class="modal-head"><h3 id="admin-modal-title">新增管理員</h3><button class="btn-close" onclick="closeAdminModal()">✕</button></div>
+    <div class="modal-body modal-form">
+      <input type="hidden" id="am-id">
+      <div class="form-group"><label>姓名</label><input type="text" id="am-name" placeholder="請輸入姓名"></div>
+      <div class="form-group"><label>帳號</label><input type="text" id="am-username" placeholder="登入帳號"></div>
+      <div class="form-group"><label>Email</label><input type="email" id="am-email" placeholder="選填"></div>
+      <div class="form-group">
+        <label>角色</label>
+        <select id="am-role">
+          <option value="超級管理員">超級管理員</option>
+          <option value="人資專員">人資專員</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>密碼</label>
+        <input type="text" id="am-password" placeholder="設定登入密碼">
+        <div class="form-hint" id="am-pwd-hint"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-sm btn-secondary" onclick="closeAdminModal()">取消</button>
+      <button class="btn-sm btn-primary" onclick="saveAdmin()">儲存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ MODAL: CARD PREVIEW ═══════ -->
+<div class="modal-overlay" id="modal-preview">
+  <div class="modal wide">
+    <div class="modal-head"><h3>賀卡預覽（範例：王小明／人資部）</h3><button class="btn-close" onclick="closePreview()">✕</button></div>
+    <div class="modal-body">
+      <div class="config-hint" style="margin-bottom:.75rem">郵件主旨：<strong id="preview-subject" style="color:var(--ink)"></strong></div>
+      <div class="preview-frame">
+        <div class="card-canvas" id="preview-canvas" style="max-width:100%">
+          <div class="card-canvas-img" id="preview-canvas-img"></div>
+          <div class="rte-body" id="preview-body"></div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot"><button class="btn-sm btn-secondary" onclick="closePreview()">關閉</button></div>
+  </div>
+</div>
+
+<script>
+// ═══════════ 設定 ═══════════
+const CFG_KEY = 'birthdayGsUrl';
+let GS_URL = localStorage.getItem(CFG_KEY) || 'https://script.google.com/macros/s/AKfycbyRHrQkjxXH7HFiE2fVI90PPMFGTFXZ_SAvcFRNsLRPRGsyihPi1YSVF8khXuX8VaIb/exec';
+let currentUser = { name: '', role: '' };
+let allEmployees = [];
+
+// ═══════════ 登入 / 登出 ═══════════
+function doLogin(){
+  const user = document.getElementById('login-user').value.trim();
+  const pwd  = document.getElementById('login-pwd').value;
+  const errEl = document.getElementById('login-err');
+  errEl.style.display = 'none';
+  if(!user || !pwd){ errEl.textContent = '請輸入帳號與密碼'; errEl.style.display = 'block'; return; }
+
+  fetch(`${GS_URL}?action=auth&user=${encodeURIComponent(user)}&pwd=${encodeURIComponent(pwd)}`)
+    .then(r=>r.json())
+    .then(res=>{
+      if(res.ok){
+        currentUser = { name: res.name || user };
+        document.getElementById('sb-name').textContent = currentUser.name;
+        document.getElementById('sb-avatar').textContent = currentUser.name.charAt(0);
+        document.getElementById('s-login').classList.remove('active');
+        document.getElementById('s-admin').classList.add('active');
+        loadDashboard();
+      } else {
+        errEl.textContent = '帳號或密碼錯誤，請重試';
+        errEl.style.display = 'block';
+      }
+    })
+    .catch(()=>{ errEl.textContent = '連線失敗，請確認 Apps Script URL 是否正確'; errEl.style.display = 'block'; });
+}
+
+function doLogout(){
+  document.getElementById('s-admin').classList.remove('active');
+  document.getElementById('s-login').classList.add('active');
+  document.getElementById('login-pwd').value = '';
+}
+
+// ═══════════ 分頁切換 ═══════════
+function tabLabel(n){
+  return {dashboard:'儀表板',employees:'員工資料',bdcard:'生日賀卡管理',annivcard:'周年賀卡管理',
+          sendsettings:'寄送設定',sendlog:'寄送紀錄',admins:'管理員設定'}[n] || n;
+}
+function showTab(name){
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>{ if(n.textContent.includes(tabLabel(name))) n.classList.add('active'); });
+  if(name==='dashboard') loadDashboard();
+}
+
+function showDashSub(name){
+  document.querySelectorAll('.dash-sub').forEach(t=>t.classList.remove('active'));
+  document.getElementById('dash-sub-'+name).classList.add('active');
+  document.querySelectorAll('.dash-subnav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('dash-subnav-'+name).classList.add('active');
+}
+
+// ═══════════ 儀表板 ═══════════
+function loadDashboard(){
+  document.getElementById('dash-updated').textContent = '載入中…';
+  fetch(`${GS_URL}?action=stats`)
+    .then(r=>r.json())
+    .then(s=>{
+      document.getElementById('dash-updated').textContent = '最後更新：' + new Date().toLocaleString('zh-TW');
+      document.getElementById('st-total').textContent = s.totalEmployees ?? '—';
+      document.getElementById('st-upcoming').textContent = s.upcomingCount ?? '—';
+      document.getElementById('st-sent').textContent = s.sentThisYear ?? '—';
+      const schEl = document.getElementById('st-schedule');
+      schEl.textContent = s.scheduleEnabled ? '啟用中' : '未啟用';
+      schEl.className = 'sc-val ' + (s.scheduleEnabled ? 'green' : 'red');
+
+      const wrap = document.getElementById('dash-upcoming');
+      if(!s.upcoming || !s.upcoming.length){
+        wrap.innerHTML = '<div class="table-empty">未來 30 天內沒有員工生日</div>';
+      } else {
+        let html = '<table><thead><tr><th>部門</th><th>工號</th><th>姓名</th><th>生日</th><th>今年狀態</th></tr></thead><tbody>';
+        s.upcoming.forEach(e=>{
+          html += `<tr><td>${esc(e.dept)}</td><td>${esc(e.empId)}</td><td>${esc(e.name)}</td><td>${esc(e.nextBirthday)}</td>`+
+                  `<td>${e.sentThisYear ? '<span class="badge pass">已寄送</span>' : '<span class="badge wait">等待中</span>'}</td></tr>`;
+        });
+        html += '</tbody></table>';
+        wrap.innerHTML = html;
+      }
+
+      document.getElementById('st-anniv-total').textContent = s.totalEmployees ?? '—';
+      document.getElementById('st-anniv-upcoming').textContent = s.anniversaryUpcomingCount ?? '—';
+      document.getElementById('st-anniv-sent').textContent = s.anniversarySentThisYear ?? '—';
+      const aSchEl = document.getElementById('st-anniv-schedule');
+      aSchEl.textContent = s.anniversaryScheduleEnabled ? '啟用中' : '未啟用';
+      aSchEl.className = 'sc-val ' + (s.anniversaryScheduleEnabled ? 'green' : 'red');
+
+      const aWrap = document.getElementById('dash-anniv-upcoming');
+      if(!s.anniversaryUpcoming || !s.anniversaryUpcoming.length){
+        aWrap.innerHTML = '<div class="table-empty">未來 30 天內沒有到職週年</div>';
+      } else {
+        let ahtml = '<table><thead><tr><th>部門</th><th>工號</th><th>姓名</th><th>週年日期</th><th>年資</th><th>今年狀態</th></tr></thead><tbody>';
+        s.anniversaryUpcoming.forEach(e=>{
+          ahtml += `<tr><td>${esc(e.dept)}</td><td>${esc(e.empId)}</td><td>${esc(e.name)}</td><td>${esc(e.nextAnniversary)}</td><td>${esc(e.yearsOfService)} 週年</td>`+
+                   `<td>${e.anniversarySentThisYear ? '<span class="badge pass">已寄送</span>' : '<span class="badge wait">等待中</span>'}</td></tr>`;
+        });
+        ahtml += '</tbody></table>';
+        aWrap.innerHTML = ahtml;
+      }
+    })
+    .catch(()=>{ document.getElementById('dash-updated').textContent = '⚠️ 無法連線，請確認 Apps Script GS_URL 設定是否正確'; });
+}
+
+function esc(s){ return String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// ═══════════ 員工資料 ═══════════
+function loadEmployees(){
+  document.getElementById('emp-table-wrap').innerHTML = '<div class="loading-wrap"><div class="spinner"></div><div>資料載入中…</div></div>';
+  fetch(`${GS_URL}?action=getEmployees`)
+    .then(r=>r.json())
+    .then(res=>{
+      allEmployees = res.employees || [];
+      document.getElementById('emp-count').textContent = `共 ${allEmployees.length} 筆`;
+      renderEmployees(allEmployees);
+    })
+    .catch(()=>{ document.getElementById('emp-table-wrap').innerHTML = '<div class="table-empty">⚠️ 資料載入失敗</div>'; });
+}
+
+function renderEmployees(list){
+  const wrap = document.getElementById('emp-table-wrap');
+  if(!list.length){ wrap.innerHTML = '<div class="table-empty">目前沒有員工資料，請至試算表「員工資料」工作表新增</div>'; return; }
+  let html = '<table><thead><tr><th>部門</th><th>工號</th><th>姓名</th><th>生日</th><th>到職日</th><th>年資</th><th>Email</th><th>生日狀態</th><th>週年狀態</th><th>操作</th></tr></thead><tbody>';
+  list.forEach(e=>{
+    html += `<tr><td>${esc(e.dept)}</td><td>${esc(e.empId)}</td><td>${esc(e.name)}</td><td>${esc(e.birthday)}</td>`+
+            `<td>${esc(e.hireDate)||'—'}</td><td>${e.yearsOfService!=null ? esc(e.yearsOfService)+' 週年' : '—'}</td><td>${esc(e.email)}</td>`+
+            `<td>${e.sentThisYear ? '<span class="badge pass">已寄送</span>' : '<span class="badge wait">未寄送</span>'}</td>`+
+            `<td>${e.hireDate ? (e.anniversarySentThisYear ? '<span class="badge pass">已寄送</span>' : '<span class="badge wait">未寄送</span>') : '—'}</td>`+
+            `<td><button class="btn-sm btn-secondary" onclick="sendTestCard('${esc(e.empId)}','birthday')">✉ 生日測試</button> `+
+            `<button class="btn-sm btn-secondary" onclick="sendTestCard('${esc(e.empId)}','anniversary')">✉ 週年測試</button></td></tr>`;
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
+
+function filterEmployees(){
+  const kw = document.getElementById('emp-search').value.trim().toLowerCase();
+  const st = document.getElementById('emp-filter').value;
+  let list = allEmployees.filter(e=>{
+    const matchKw = !kw || [e.dept,e.empId,e.name].some(v=>String(v).toLowerCase().includes(kw));
+    const matchSt = !st || (st==='sent' ? e.sentThisYear : !e.sentThisYear);
+    return matchKw && matchSt;
+  });
+  renderEmployees(list);
+}
+
+function sendTestCard(empId, cardType){
+  const label = cardType === 'anniversary' ? '週年賀卡' : '生日賀卡';
+  if(!confirm(`確定要寄送一封測試${label}給工號 ${empId} 的員工嗎？`)) return;
+  fetch(GS_URL, { method:'POST', body:JSON.stringify({ action:'sendTestCard', cardType, empId }) })
+    .then(r=>r.json())
+    .then(res=>{ alert(res.status==='ok' ? `✅ 測試${label}已寄出` : ('⚠️ ' + (res.message||'寄送失敗'))); })
+    .catch(()=>alert('⚠️ 連線失敗'));
+}
+
+// ═══════════ 賀卡圖檔管理 + 內文管理（birthday / anniversary 共用）═══════════
+function pfx(type){ return type === 'anniversary' ? 'an' : 'bd'; }
+
+let cardState = {
+  birthday:    { fileId:'', imageUrl:'', subject:'', bodyHtml:'' },
+  anniversary: { fileId:'', imageUrl:'', subject:'', bodyHtml:'' }
+};
+let imageLibraries = { birthday: [], anniversary: [] };
+let uploadedImage   = { birthday: null, anniversary: null };
+let bccEmailsState  = { birthday: [], anniversary: [] };
+let savedRanges     = { birthday: null, anniversary: null };
+
+function loadCardManagement(type){
+  loadCardSettings(type);
+  loadImageLibrary(type);
+}
+
+function loadCardSettings(type){
+  fetch(`${GS_URL}?action=getCardSettings&cardType=${type}`)
+    .then(r=>r.json())
+    .then(c=>{
+      cardState[type] = c;
+      renderCardImagePreview(type, c.imageUrl);
+      document.getElementById(pfx(type)+'-subject').value = c.subject || '';
+      document.getElementById(pfx(type)+'-body').innerHTML = c.bodyHtml || '';
+    });
+}
+
+function renderCardImagePreview(type, url){
+  const wrap = document.getElementById(pfx(type)+'-img-preview');
+  wrap.innerHTML = url ? `<img src="${esc(url)}" alt="賀卡圖片">` : '<div class="card-preview-empty">尚未選擇賀卡圖片</div>';
+  updateCanvasBackground(type, url);
+}
+
+function updateCanvasBackground(type, url){
+  const canvas = document.getElementById(pfx(type)+'-canvas');
+  const img = document.getElementById(pfx(type)+'-canvas-img');
+  if(!canvas || !img) return;
+  img.style.backgroundImage = url ? `url("${url}")` : '';
+  canvas.classList.toggle('empty', !url);
+}
+
+document.addEventListener('DOMContentLoaded', ()=>{
+  ['birthday','anniversary'].forEach(type=>{
+    const zone = document.getElementById(pfx(type)+'-upload-zone');
+    if(!zone) return;
+    ['dragover','dragenter'].forEach(evt=>zone.addEventListener(evt, e=>{ e.preventDefault(); zone.classList.add('drag'); }));
+    ['dragleave','drop'].forEach(evt=>zone.addEventListener(evt, e=>{ e.preventDefault(); zone.classList.remove('drag'); }));
+    zone.addEventListener('drop', e=>{ if(e.dataTransfer.files.length) handleImageSelect(type, e.dataTransfer.files); });
+  });
+
+  ['bd-hour','an-hour'].forEach(id=>{
+    const sel = document.getElementById(id);
+    if(!sel) return;
+    for(let h=0; h<24; h++){
+      const opt = document.createElement('option');
+      opt.value = h; opt.textContent = String(h).padStart(2,'0') + ':00';
+      sel.appendChild(opt);
+    }
+  });
+
+  // 記錄內文編輯區目前的選取範圍，讓字級/顏色下拉選單（需要搶走焦點才能開啟）
+  // 在使用者選色/選字級之後，仍能套用到原本選取的文字
+  ['birthday','anniversary'].forEach(type=>{
+    const body = document.getElementById(pfx(type)+'-body');
+    if(!body) return;
+    ['mouseup','keyup'].forEach(evt=>body.addEventListener(evt, ()=>{
+      const sel = window.getSelection();
+      if(sel.rangeCount && body.contains(sel.anchorNode)) savedRanges[type] = sel.getRangeAt(0);
+    }));
+  });
+});
+
+function handleImageSelect(type, files){
+  if(!files || !files.length) return;
+  const file = files[0];
+  if(!file.type.startsWith('image/')){ alert('請選擇圖片檔案'); return; }
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    const base64 = reader.result.split(',')[1];
+    uploadedImage[type] = { base64, mime: file.type, name: file.name };
+    renderCardImagePreview(type, reader.result);
+    uploadCardImageNow(type);
+  };
+  reader.readAsDataURL(file);
+}
+
+function uploadCardImageNow(type){
+  const info = uploadedImage[type];
+  if(!info) return;
+  const statusEl = document.getElementById(pfx(type)+'-img-status');
+  statusEl.textContent = '上傳中…';
+  fetch(GS_URL, { method:'POST', body:JSON.stringify({
+    action:'uploadCardImage', cardType:type, base64: info.base64, mimeType: info.mime, filename: info.name
+  })})
+    .then(r=>r.json())
+    .then(res=>{
+      if(res.status==='ok'){
+        statusEl.textContent = '✅ 圖片已上傳並設為使用中';
+        cardState[type].imageUrl = res.imageUrl; cardState[type].fileId = res.fileId;
+        loadImageLibrary(type);
+      } else {
+        statusEl.textContent = '⚠️ 上傳失敗：' + (res.message||'');
+      }
+    })
+    .catch(()=>{ statusEl.textContent = '⚠️ 上傳失敗，請確認連線'; });
+}
+
+function removeCardImage(type){
+  if(!confirm('確定要清除目前使用中的賀卡圖片嗎？（圖庫內的圖片不會被刪除）')) return;
+  fetch(GS_URL, { method:'POST', body:JSON.stringify({ action:'removeCardImage', cardType:type }) })
+    .then(r=>r.json())
+    .then(res=>{
+      if(res.status==='ok'){
+        renderCardImagePreview(type, ''); cardState[type].fileId=''; cardState[type].imageUrl='';
+        document.getElementById(pfx(type)+'-img-status').textContent='✅ 已清除';
+        renderGalleries(type);
+      }
+    });
+}
+
+// ── 圖庫（即時讀取 Google Drive 資料夾）──
+function loadImageLibrary(type){
+  document.getElementById(pfx(type)+'-gallery').innerHTML = '<div class="loading-wrap"><div class="spinner"></div><div>圖庫載入中…</div></div>';
+  fetch(`${GS_URL}?action=getImageLibrary&cardType=${type}`)
+    .then(r=>r.json())
+    .then(res=>{
+      imageLibraries[type] = res.library || [];
+      renderGalleries(type);
+    })
+    .catch(()=>{ document.getElementById(pfx(type)+'-gallery').innerHTML = '<div class="config-hint" style="margin:0">⚠️ 圖庫載入失敗</div>'; });
+}
+
+function renderGalleries(type){
+  const activeId = cardState[type].fileId;
+  const wrap = document.getElementById(pfx(type)+'-gallery');
+  const lib = imageLibraries[type];
+  if(!lib.length){ wrap.innerHTML = '<div class="config-hint" style="margin:0">圖庫是空的，請先上傳一張圖片</div>'; return; }
+  wrap.innerHTML = lib.map(item=>`
+    <div class="gallery-item ${String(item.fileId)===String(activeId)?'active':''}" onclick="selectTemplateImage('${type}','${esc(item.fileId)}')">
+      ${String(item.fileId)===String(activeId) ? '<span class="gi-badge">使用中</span>' : ''}
+      <span class="gi-del" onclick="deleteGalleryImage(event,'${type}','${esc(item.fileId)}')">✕</span>
+      <img src="${esc(item.imageUrl)}" alt="${esc(item.name)}" loading="lazy">
+      <div class="gi-name">${esc(item.name)}</div>
+    </div>`).join('');
+}
+
+function selectTemplateImage(type, fileId){
+  fetch(GS_URL, { method:'POST', body:JSON.stringify({ action:'selectCardImage', cardType:type, fileId }) })
+    .then(r=>r.json())
+    .then(res=>{
+      if(res.status!=='ok'){ alert('⚠️ ' + (res.message||'選擇失敗')); return; }
+      const item = imageLibraries[type].find(i=>String(i.fileId)===String(fileId));
+      if(item){ cardState[type].fileId = item.fileId; cardState[type].imageUrl = item.imageUrl; }
+      renderCardImagePreview(type, cardState[type].imageUrl);
+      document.getElementById(pfx(type)+'-img-status').textContent = '✅ 已套用「' + (item ? item.name : '') + '」';
+      renderGalleries(type);
+    });
+}
+
+function deleteGalleryImage(event, type, fileId){
+  event.stopPropagation();
+  if(!confirm('確定要從圖庫永久刪除這張圖片嗎？')) return;
+  fetch(GS_URL, { method:'POST', body:JSON.stringify({ action:'deleteLibraryImage', cardType:type, fileId }) })
+    .then(r=>r.json())
+    .then(res=>{
+      if(res.status!=='ok'){ alert('⚠️ ' + (res.message||'刪除失敗')); return; }
+      if(String(cardState[type].fileId)===String(fileId)){
+        cardState[type].fileId=''; cardState[type].imageUrl='';
+        renderCardImagePreview(type, '');
+      }
+      loadImageLibrary(type);
+    });
+}
+
+// ═══════════ 賀卡內文管理（富文字工具列，birthday / anniversary 共用）═══════════
+function rteExec(type, cmd, val){
+  const body = document.getElementById(pfx(type)+'-body');
+  body.focus();
+  if(savedRanges[type]){
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(savedRanges[type]);
+  }
+  document.execCommand(cmd, false, val || null);
+  const sel2 = window.getSelection();
+  if(sel2.rangeCount) savedRanges[type] = sel2.getRangeAt(0);
+}
+
+// ── 顏色色塊選取器 ──
+const COLOR_SWATCHES = [
+  '#1a1814','#3d3a34','#7a7570','#ffffff',
+  '#8b2020','#F47920','#c9a227','#1a7a3a',
+  '#1a5fa8','#6a4c93','#c23b7a','#8b5a2b'
+];
+
+document.addEventListener('DOMContentLoaded', ()=>{
+  ['birthday','anniversary'].forEach(type=>{
+    const grid = document.getElementById(pfx(type)+'-color-grid');
+    if(!grid) return;
+    grid.innerHTML = COLOR_SWATCHES.map(c=>
+      `<span class="color-swatch" style="background:${c}" title="${c}" onmousedown="event.preventDefault()" onclick="applyColor('${type}','${c}')"></span>`
+    ).join('');
+  });
+  document.addEventListener('click', e=>{
+    document.querySelectorAll('.color-picker-wrap').forEach(wrap=>{
+      if(!wrap.contains(e.target)){
+        const palette = wrap.querySelector('.color-palette');
+        if(palette) palette.classList.remove('open');
+      }
+    });
+  });
+});
+
+function toggleColorPalette(type, event){
+  event.stopPropagation();
+  document.getElementById(pfx(type)+'-color-palette').classList.toggle('open');
+}
+
+function applyColor(type, hex){
+  rteExec(type, 'foreColor', hex);
+  document.getElementById(pfx(type)+'-color-swatch').style.background = hex;
+  document.getElementById(pfx(type)+'-color-custom').value = hex;
+  document.getElementById(pfx(type)+'-color-palette').classList.remove('open');
+}
+
+function insertPlaceholder(targetId, text){
+  const el = document.getElementById(targetId);
+  if(el.tagName === 'INPUT'){
+    const start = el.selectionStart ?? el.value.length, end = el.selectionEnd ?? el.value.length;
+    el.value = el.value.slice(0,start) + text + el.value.slice(end);
+    el.focus();
+  } else {
+    el.focus();
+    document.execCommand('insertText', false, text);
+  }
+}
+
+function saveCardContent(type){
+  const subject = document.getElementById(pfx(type)+'-subject').value.trim();
+  const bodyHtml = document.getElementById(pfx(type)+'-body').innerHTML;
+  const statusEl = document.getElementById(pfx(type)+'-cc-status');
+  statusEl.textContent = '儲存中…';
+  fetch(GS_URL, { method:'POST', body:JSON.stringify({ action:'saveCardSettings', cardType:type, subject, bodyHtml }) })
+    .then(r=>r.json())
+    .then(res=>{ statusEl.textContent = res.status==='ok' ? '✅ 已儲存' : '⚠️ 儲存失敗'; setTimeout(()=>statusEl.textContent='',3000); });
+}
+
+function testRenderCard(type){
+  const resultEl = document.getElementById(pfx(type)+'-render-result');
+  resultEl.innerHTML = '<div class="loading-wrap"><div class="spinner"></div><div>正在測試圖片合成…</div></div>';
+  const subject = document.getElementById(pfx(type)+'-subject').value.trim();
+  const bodyHtml = document.getElementById(pfx(type)+'-body').innerHTML;
+  // 先儲存目前編輯中的內容，確保測試的是最新版本
+  fetch(GS_URL, { method:'POST', body:JSON.stringify({ action:'saveCardSettings', cardType:type, subject, bodyHtml }) })
+    .then(r=>r.json())
+    .then(()=> fetch(GS_URL, { method:'POST', body:JSON.stringify({ action:'testRenderCard', cardType:type }) }))
+    .then(r=>r.json())
+    .then(res=>{
+      if(res.status==='ok'){
+        resultEl.innerHTML = `<div class="config-hint" style="margin-bottom:.5rem">✅ 合成成功，以下是實際會寄出的圖片：</div><img src="${res.imageDataUri}" style="max-width:100%;border-radius:8px;border:1px solid var(--paper3)">`;
+      } else {
+        resultEl.innerHTML = `<div class="login-err" style="display:block">⚠️ 合成失敗：${esc(res.message||'')}${res.stack ? '<br><span style="font-size:.72rem;opacity:.7">'+esc(res.stack)+'</span>' : ''}</div>`;
+      }
+    })
+    .catch(()=>{ resultEl.innerHTML = '<div class="login-err" style="display:block">⚠️ 連線失敗，請確認 Apps Script 已部署最新版本</div>'; });
+}
+
+function openPreview(type){
+  const subject = document.getElementById(pfx(type)+'-subject').value || '（尚未設定主旨）';
+  const bodyHtml = document.getElementById(pfx(type)+'-body').innerHTML || '（尚未設定內文）';
+  const sample = type === 'anniversary'
+    ? { '{{姓名}}':'王小明', '{{部門}}':'人資部', '{{工號}}':'A0012', '{{到職日}}':'2021/07/18', '{{年資}}':'5' }
+    : { '{{姓名}}':'王小明', '{{部門}}':'人資部', '{{工號}}':'A0012', '{{生日}}':'07/18' };
+  const fill = t => Object.keys(sample).reduce((acc,k)=>acc.split(k).join(sample[k]), t);
+
+  document.getElementById('preview-subject').textContent = fill(subject);
+  document.getElementById('preview-body').innerHTML = fill(bodyHtml);
+  document.getElementById('preview-canvas-img').style.backgroundImage = cardState[type].imageUrl ? `url("${cardState[type].imageUrl}")` : '';
+  document.getElementById('modal-preview').classList.add('open');
+}
+function closePreview(){ document.getElementById('modal-preview').classList.remove('open'); }
+
+// ═══════════ 寄送設定（birthday / anniversary 共用）═══════════
+function loadSendSettings(type){
+  fetch(`${GS_URL}?action=getSendSettings&cardType=${type}`)
+    .then(r=>r.json())
+    .then(s=>{
+      bccEmailsState[type] = s.bccList || [];
+      renderBccChips(type);
+      document.getElementById(pfx(type)+'-daysbefore').value = s.daysBefore ?? 0;
+      document.getElementById(pfx(type)+'-hour').value = s.sendHour ?? 9;
+      document.getElementById(pfx(type)+'-enabled').checked = !!s.enabled;
+      updateEnabledLabel(type);
+      document.getElementById(pfx(type)+'-send-status').textContent = s.lastRun ? ('最後執行：' + s.lastRun) : '';
+    });
+}
+
+document.addEventListener('DOMContentLoaded', ()=>{
+  ['birthday','anniversary'].forEach(type=>{
+    const cb = document.getElementById(pfx(type)+'-enabled');
+    if(cb) cb.addEventListener('change', ()=>updateEnabledLabel(type));
+  });
+});
+function updateEnabledLabel(type){
+  document.getElementById(pfx(type)+'-enabled-label').textContent = document.getElementById(pfx(type)+'-enabled').checked ? '啟用中' : '停用中';
+}
+
+function renderBccChips(type){
+  const wrap = document.getElementById(pfx(type)+'-bcc-chips');
+  const list = bccEmailsState[type];
+  if(!list.length){ wrap.innerHTML = '<span class="config-hint" style="margin:0">尚未新增密件副本收件人</span>'; return; }
+  wrap.innerHTML = list.map((email,i)=>
+    `<span class="chip">${esc(email)}<span class="x" onclick="removeBcc('${type}',${i})">✕</span></span>`
+  ).join('');
+}
+function addBcc(type){
+  const input = document.getElementById(pfx(type)+'-bcc-input');
+  const email = input.value.trim();
+  if(!email || !email.includes('@')){ alert('請輸入正確的 Email'); return; }
+  if(bccEmailsState[type].includes(email)){ input.value=''; return; }
+  bccEmailsState[type].push(email); input.value=''; renderBccChips(type);
+}
+function removeBcc(type, i){ bccEmailsState[type].splice(i,1); renderBccChips(type); }
+
+function saveSendSettings(type){
+  const daysBefore = parseInt(document.getElementById(pfx(type)+'-daysbefore').value, 10) || 0;
+  const sendHour = parseInt(document.getElementById(pfx(type)+'-hour').value, 10);
+  const enabled = document.getElementById(pfx(type)+'-enabled').checked;
+  const statusEl = document.getElementById(pfx(type)+'-send-status');
+  statusEl.textContent = '儲存中…';
+  fetch(GS_URL, { method:'POST', body:JSON.stringify({ action:'saveSendSettings', cardType:type, bccList: bccEmailsState[type], daysBefore, sendHour, enabled }) })
+    .then(r=>r.json())
+    .then(res=>{ statusEl.textContent = res.status==='ok' ? '✅ 設定已儲存，觸發器已更新' : '⚠️ 儲存失敗'; });
+}
+
+function runSendNow(type){
+  if(!confirm('確定要立即執行一次寄送檢查嗎？符合條件且尚未寄送的員工將會馬上收到賀卡。')) return;
+  const statusEl = document.getElementById(pfx(type)+'-send-status');
+  statusEl.textContent = '執行中…';
+  fetch(GS_URL, { method:'POST', body:JSON.stringify({ action:'runSendNow', cardType:type }) })
+    .then(r=>r.json())
+    .then(res=>{ statusEl.textContent = res.status==='ok' ? `✅ 執行完成，共寄出 ${res.sent} 張賀卡` : '⚠️ 執行失敗'; });
+}
+
+// ═══════════ 寄送紀錄 ═══════════
+function loadSendLog(){
+  document.getElementById('log-table-wrap').innerHTML = '<div class="loading-wrap"><div class="spinner"></div><div>資料載入中…</div></div>';
+  fetch(`${GS_URL}?action=getSendLog`)
+    .then(r=>r.json())
+    .then(res=>{
+      const logs = res.logs || [];
+      document.getElementById('log-count').textContent = `共 ${logs.length} 筆`;
+      const wrap = document.getElementById('log-table-wrap');
+      if(!logs.length){ wrap.innerHTML = '<div class="table-empty">尚無寄送紀錄</div>'; return; }
+      let html = '<table><thead><tr><th>工號</th><th>姓名</th><th>部門</th><th>Email</th><th>生日年度</th><th>寄送時間</th></tr></thead><tbody>';
+      logs.forEach(l=>{
+        html += `<tr><td>${esc(l.empId)}</td><td>${esc(l.name)}</td><td>${esc(l.dept)}</td><td>${esc(l.email)}</td><td>${esc(l.year)}</td><td>${esc(l.sentAt)}</td></tr>`;
+      });
+      html += '</tbody></table>';
+      wrap.innerHTML = html;
+    })
+    .catch(()=>{ document.getElementById('log-table-wrap').innerHTML = '<div class="table-empty">⚠️ 資料載入失敗</div>'; });
+}
+
+// ═══════════ 管理員設定 ═══════════
+let allAdmins = [];
+
+function loadAdminsFromGS(){
+  fetch(`${GS_URL}?action=getAdmins`)
+    .then(r=>r.json())
+    .then(res=>{ allAdmins = res.admins || []; renderAdmins(allAdmins); })
+    .catch(()=>{ document.getElementById('admin-list').innerHTML = '<div class="table-empty">⚠️ 資料載入失敗</div>'; });
+}
+
+function renderAdmins(list){
+  const wrap = document.getElementById('admin-list');
+  if(!list.length){ wrap.innerHTML = '<div class="table-empty">尚無管理員帳號</div>'; return; }
+  wrap.innerHTML = list.map(a=>`
+    <div class="admin-row">
+      <div class="admin-av">${esc(a.name).charAt(0)}</div>
+      <div class="admin-info">
+        <div class="admin-name">${esc(a.name)} <span class="role-badge">${esc(a.role)}</span></div>
+        <div class="admin-meta">帳號：${esc(a.username)}　${a.email ? 'Email：'+esc(a.email) : ''}</div>
+      </div>
+      <div class="admin-actions">
+        <button class="btn-sm btn-secondary" onclick="openAdminModal('${esc(a.id)}')">編輯</button>
+        <button class="btn-sm btn-danger" onclick="deleteAdmin('${esc(a.id)}')">刪除</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function openAdminModal(id){
+  const admin = id ? allAdmins.find(a=>String(a.id)===String(id)) : null;
+  document.getElementById('admin-modal-title').textContent = admin ? '編輯管理員' : '新增管理員';
+  document.getElementById('am-id').value = admin ? admin.id : '';
+  document.getElementById('am-name').value = admin ? admin.name : '';
+  document.getElementById('am-username').value = admin ? admin.username : '';
+  document.getElementById('am-email').value = admin ? admin.email : '';
+  document.getElementById('am-role').value = admin ? admin.role : '人資專員';
+  document.getElementById('am-password').value = '';
+  document.getElementById('am-pwd-hint').textContent = admin ? '留空表示不變更密碼' : '';
+  document.getElementById('modal-admin').classList.add('open');
+}
+function closeAdminModal(){ document.getElementById('modal-admin').classList.remove('open'); }
+
+function saveAdmin(){
+  const id = document.getElementById('am-id').value;
+  const payload = {
+    action: id ? 'updateAdmin' : 'addAdmin',
+    id: id || String(Date.now()),
+    name: document.getElementById('am-name').value.trim(),
+    username: document.getElementById('am-username').value.trim(),
+    email: document.getElementById('am-email').value.trim(),
+    role: document.getElementById('am-role').value,
+    password: document.getElementById('am-password').value
+  };
+  if(!payload.name || !payload.username || (!id && !payload.password)){ alert('請填寫姓名、帳號與密碼'); return; }
+  fetch(GS_URL, { method:'POST', body:JSON.stringify(payload) })
+    .then(r=>r.json())
+    .then(res=>{
+      if(res.status==='ok'){ closeAdminModal(); loadAdminsFromGS(); }
+      else alert('⚠️ ' + (res.message || '儲存失敗'));
+    });
+}
+
+function deleteAdmin(id){
+  if(!confirm('確定要刪除此管理員帳號嗎？')) return;
+  fetch(GS_URL, { method:'POST', body:JSON.stringify({ action:'deleteAdmin', id }) })
+    .then(r=>r.json())
+    .then(res=>{ if(res.status==='ok') loadAdminsFromGS(); else alert('⚠️ ' + (res.message||'刪除失敗')); });
+}
+</script>
+</body>
+</html>
