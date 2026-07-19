@@ -93,9 +93,17 @@ table{width:100%;border-collapse:collapse}
 th{font-size:.75rem;font-weight:700;color:var(--ink3);text-align:left;padding:.65rem 1rem;background:var(--paper2);border-bottom:1px solid var(--paper3);white-space:nowrap}
 th.sortable-th{cursor:pointer;user-select:none}
 th.sortable-th:hover{color:var(--accent)}
+.sort-icon{font-size:.7rem}
+.sort-icon-idle{color:var(--paper3)}
+th.sortable-th:hover .sort-icon-idle{color:var(--ink3)}
 td{font-size:.85rem;padding:.75rem 1rem;border-bottom:1px solid var(--paper3);vertical-align:middle}
 tr:last-child td{border-bottom:none}
 tr:hover td{background:var(--paper)}
+.table-scroll{overflow-x:auto}
+.emp-table td{white-space:nowrap}
+.emp-table th,.emp-table td{text-align:center}
+.dash-table th,.dash-table td{text-align:center}
+.btn-sm{white-space:nowrap}
 .badge{display:inline-flex;align-items:center;font-size:.75rem;font-weight:700;padding:.2rem .65rem;border-radius:12px}
 .badge.pass{background:var(--green-light);color:var(--green)}
 .badge.fail{background:var(--red-light);color:var(--red)}
@@ -756,12 +764,12 @@ function loadDashboard(){
       if(!s.upcoming || !s.upcoming.length){
         wrap.innerHTML = '<div class="table-empty">未來 30 天內沒有員工生日</div>';
       } else {
-        let html = '<table><thead><tr><th>部門</th><th>工號</th><th>姓名</th><th>生日</th><th>今年狀態</th></tr></thead><tbody>';
+        let html = '<div class="table-scroll"><table class="dash-table"><thead><tr><th>部門</th><th>工號</th><th>姓名</th><th>生日</th><th>今年狀態</th></tr></thead><tbody>';
         s.upcoming.forEach(e=>{
           html += `<tr><td>${esc(e.dept)}</td><td>${esc(e.empId)}</td><td>${esc(e.name)}</td><td>${esc(e.nextBirthday)}</td>`+
                   `<td>${e.sentThisYear ? '<span class="badge pass">已寄送</span>' : '<span class="badge wait">等待中</span>'}</td></tr>`;
         });
-        html += '</tbody></table>';
+        html += '</tbody></table></div>';
         wrap.innerHTML = html;
       }
 
@@ -776,12 +784,12 @@ function loadDashboard(){
       if(!s.anniversaryUpcoming || !s.anniversaryUpcoming.length){
         aWrap.innerHTML = '<div class="table-empty">未來 30 天內沒有到職週年</div>';
       } else {
-        let ahtml = '<table><thead><tr><th>部門</th><th>工號</th><th>姓名</th><th>週年日期</th><th>年資</th><th>今年狀態</th></tr></thead><tbody>';
+        let ahtml = '<div class="table-scroll"><table class="dash-table"><thead><tr><th>部門</th><th>工號</th><th>姓名</th><th>週年日期</th><th>年資</th><th>今年狀態</th></tr></thead><tbody>';
         s.anniversaryUpcoming.forEach(e=>{
           ahtml += `<tr><td>${esc(e.dept)}</td><td>${esc(e.empId)}</td><td>${esc(e.name)}</td><td>${esc(e.nextAnniversary)}</td><td>${esc(e.yearsOfService)} 週年</td>`+
                    `<td>${e.anniversarySentThisYear ? '<span class="badge pass">已寄送</span>' : '<span class="badge wait">等待中</span>'}</td></tr>`;
         });
-        ahtml += '</tbody></table>';
+        ahtml += '</tbody></table></div>';
         aWrap.innerHTML = ahtml;
       }
     })
@@ -803,11 +811,41 @@ function loadEmployees(){
     .catch(()=>{ document.getElementById('emp-table-wrap').innerHTML = '<div class="table-empty">⚠️ 資料載入失敗</div>'; });
 }
 
+let empSortField = null, empSortDir = 1;
+
+function sortTh(label, field){
+  const arrow = empSortField===field ? (empSortDir===1?'▲':'▼') : '<span class="sort-icon-idle">⇅</span>';
+  return `<th class="sortable-th" onclick="sortEmployees('${field}')">${label} <span class="sort-icon">${arrow}</span></th>`;
+}
+
+function sortEmployees(field){
+  empSortDir = (empSortField === field) ? -empSortDir : 1;
+  empSortField = field;
+  filterEmployees();
+}
+
+function empCompare(a, b, field){
+  if(field === 'yearsOfService'){
+    const va = a.yearsOfService ?? -Infinity;
+    const vb = b.yearsOfService ?? -Infinity;
+    return va - vb;
+  }
+  const va = String(a[field] ?? '');
+  const vb = String(b[field] ?? '');
+  return va.localeCompare(vb, 'zh-Hant', {numeric:true});
+}
+
 function renderEmployees(list){
   const wrap = document.getElementById('emp-table-wrap');
   if(!list.length){ wrap.innerHTML = '<div class="table-empty">目前沒有員工資料，請至試算表「員工資料」工作表新增</div>'; return; }
-  let html = '<table><thead><tr><th>部門</th><th>工號</th><th>姓名</th><th>生日</th><th>到職日</th><th>年資</th><th>Email</th><th>生日狀態</th><th>週年狀態</th><th>操作</th></tr></thead><tbody>';
-  list.forEach(e=>{
+  let sorted = list;
+  if(empSortField){
+    sorted = list.slice().sort((a,b)=>empCompare(a,b,empSortField) * empSortDir);
+  }
+  let html = '<div class="table-scroll"><table class="emp-table"><thead><tr>'+
+    sortTh('部門','dept')+sortTh('工號','empId')+sortTh('姓名','name')+sortTh('生日','birthday')+sortTh('到職日','hireDate')+sortTh('年資','yearsOfService')+
+    '<th>Email</th><th>生日狀態</th><th>週年狀態</th><th>操作</th></tr></thead><tbody>';
+  sorted.forEach(e=>{
     html += `<tr><td>${esc(e.dept)}</td><td>${esc(e.empId)}</td><td>${esc(e.name)}</td><td>${esc(e.birthday)}</td>`+
             `<td>${esc(e.hireDate)||'—'}</td><td>${e.yearsOfService!=null ? esc(e.yearsOfService)+' 週年' : '—'}</td><td>${esc(e.email)}</td>`+
             `<td>${e.sentThisYear ? '<span class="badge pass">已寄送</span>' : '<span class="badge wait">未寄送</span>'}</td>`+
@@ -815,7 +853,7 @@ function renderEmployees(list){
             `<td><button class="btn-sm btn-secondary" onclick="sendTestCard('${esc(e.empId)}','birthday')">✉ 生日測試</button> `+
             `<button class="btn-sm btn-secondary" onclick="sendTestCard('${esc(e.empId)}','anniversary')">✉ 週年測試</button></td></tr>`;
   });
-  html += '</tbody></table>';
+  html += '</tbody></table></div>';
   wrap.innerHTML = html;
 }
 
