@@ -176,7 +176,7 @@ tr:hover td{background:var(--paper)}
 .gallery-item{border:2px solid var(--paper3);border-radius:var(--radius-lg);overflow:hidden;cursor:pointer;transition:border-color .15s;background:#fff;position:relative}
 .gallery-item:hover{border-color:var(--accent)}
 .gallery-item.active{border-color:var(--accent);box-shadow:0 0 0 3px rgba(244,121,32,.18)}
-.gallery-item img{width:100%;aspect-ratio:3/2;object-fit:cover;display:block;background:var(--paper2)}
+.gallery-item img{width:100%;aspect-ratio:16/9;object-fit:cover;display:block;background:var(--paper2)}
 .gallery-item .gi-name{font-size:.72rem;color:var(--ink2);padding:.5rem .6rem;border-top:1px solid var(--paper3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .gallery-item .gi-badge{position:absolute;top:.4rem;left:.4rem;background:var(--accent);color:#fff;font-size:.68rem;font-weight:700;padding:.15rem .55rem;border-radius:10px}
 .gallery-item .gi-del{position:absolute;top:.4rem;right:.4rem;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;font-size:.7rem;display:flex;align-items:center;justify-content:center}
@@ -212,9 +212,19 @@ tr:hover td{background:var(--paper)}
 
 /* CARD CANVAS：內文直接疊在賀卡圖片上編輯，寄信時後端會用 Google 簡報把兩者合成成一張
    圖片再寄出，所以這裡的疊圖預覽跟實際收到的信件是一致的（而非用瀏覽器 CSS 硬疊） */
-.card-canvas{position:relative;width:100%;max-width:640px;aspect-ratio:3/2;background:var(--paper2);border:1px solid var(--paper3);border-top:none;border-radius:0 0 var(--radius) var(--radius);overflow:hidden}
+/* max-width 故意設成跟後端 CARD_W_PT 完全一樣（720px＝720pt）：字級／行高的數字在編輯區是
+   當作 CSS px、在 Slides 合成時是當作 pt 直接套用，兩者單位本來就不完全相等，只有當這個
+   預覽框「真的以 720px 寬度呈現」時，px 對 pt 才會是 1:1，字級佔卡片高度的比例才會準確對應
+   到合成後的圖片，不然這個框跟後端頁面寬度對不起來，同一個字級數字在編輯區跟合成結果看起來
+   佔的比例就會不一樣，造成文字垂直位置對不齊 */
+.card-canvas{position:relative;width:100%;max-width:720px;aspect-ratio:16/9;background:var(--paper2);border:1px solid var(--paper3);border-top:none;border-radius:0 0 var(--radius) var(--radius);overflow:hidden}
 .card-canvas .card-canvas-img{position:absolute;inset:0;background-size:cover;background-position:center;background-repeat:no-repeat}
 .card-canvas .rte-body{position:absolute;top:5%;left:5%;right:5%;bottom:4%;padding:0;font-size:14px;line-height:1.5;outline:none;overflow:auto;color:#1a1814;font-family:'Noto Sans TC',sans-serif}
+/* 瀏覽器對 <p> 標籤預設會加上約 1em 的上下留白（<div> 沒有這個問題），如果內文還留著舊版
+   預設內容的 <p> 標籤（早期範本文字就是用 <p> 包每一行），編輯區看到的文字位置就會因為這些
+   看不到的留白往下多推一截，但合成到 Slides 那邊完全沒有對應的留白，兩邊位置才會對不起來。
+   統一把 .rte-body 裡的 p/div 邊界清成 0，確保編輯區不會有這種瀏覽器預設造成的隱形留白 */
+.card-canvas .rte-body p,.card-canvas .rte-body div{margin:0}
 .card-canvas .card-canvas-empty-msg{display:none;position:absolute;inset:0;align-items:center;justify-content:center;text-align:center;color:var(--ink3);font-size:.85rem;padding:2rem}
 .card-canvas.empty .rte-body{display:none}
 .card-canvas.empty .card-canvas-empty-msg{display:flex}
@@ -429,7 +439,7 @@ tr:hover td{background:var(--paper)}
         <h3>上傳新圖片</h3>
         <div class="upload-zone" id="bd-upload-zone" onclick="document.getElementById('bd-img-input').click()">
           <div style="font-size:1.8rem">📤</div>
-          <p>點擊選擇圖片，或將圖片拖曳到此處<br>建議尺寸 600×400px，支援 JPG / PNG，上傳後會自動加入上方圖庫並設為使用中</p>
+          <p>點擊選擇圖片，或將圖片拖曳到此處<br>建議尺寸 1280×720px（16:9），支援 JPG / PNG，上傳後會自動加入上方圖庫並設為使用中</p>
           <input type="file" id="bd-img-input" accept="image/*" onchange="handleImageSelect('birthday', this.files)">
         </div>
       </div>
@@ -437,6 +447,7 @@ tr:hover td{background:var(--paper)}
       <div style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap">
         <button class="btn-sm btn-primary" onclick="saveCardContent('birthday')">💾 儲存內文設定</button>
         <button class="btn-sm btn-secondary" onclick="testRenderCard('birthday')">🔧 測試圖片合成</button>
+        <button class="btn-sm btn-secondary" onclick="cleanupContent('birthday')">🧹 清理內文格式</button>
         <span class="config-hint" id="bd-cc-status"></span>
       </div>
       <div id="bd-render-result" style="margin-top:1rem"></div>
@@ -528,7 +539,7 @@ tr:hover td{background:var(--paper)}
         <h3>上傳新圖片</h3>
         <div class="upload-zone" id="an-upload-zone" onclick="document.getElementById('an-img-input').click()">
           <div style="font-size:1.8rem">📤</div>
-          <p>點擊選擇圖片，或將圖片拖曳到此處<br>建議尺寸 600×400px，支援 JPG / PNG，上傳後會自動加入上方圖庫並設為使用中</p>
+          <p>點擊選擇圖片，或將圖片拖曳到此處<br>建議尺寸 1280×720px（16:9），支援 JPG / PNG，上傳後會自動加入上方圖庫並設為使用中</p>
           <input type="file" id="an-img-input" accept="image/*" onchange="handleImageSelect('anniversary', this.files)">
         </div>
       </div>
@@ -536,6 +547,7 @@ tr:hover td{background:var(--paper)}
       <div style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap">
         <button class="btn-sm btn-primary" onclick="saveCardContent('anniversary')">💾 儲存內文設定</button>
         <button class="btn-sm btn-secondary" onclick="testRenderCard('anniversary')">🔧 測試圖片合成</button>
+        <button class="btn-sm btn-secondary" onclick="cleanupContent('anniversary')">🧹 清理內文格式</button>
         <span class="config-hint" id="an-cc-status"></span>
       </div>
       <div id="an-render-result" style="margin-top:1rem"></div>
@@ -692,6 +704,7 @@ tr:hover td{background:var(--paper)}
       <div class="form-group"><label>姓名</label><input type="text" id="em-name" placeholder="請輸入姓名"></div>
       <div class="form-group"><label>生日</label><input type="date" id="em-birthday"></div>
       <div class="form-group"><label>到職日</label><input type="date" id="em-hiredate"></div>
+      <div class="form-group"><label>留停天數</label><input type="number" id="em-leavedays" min="0" step="1" placeholder="留職停薪天數，計算年資時會扣除，預設 0"></div>
       <div class="form-group"><label>Email</label><input type="email" id="em-email" placeholder="選填"></div>
     </div>
     <div class="modal-foot">
@@ -780,7 +793,7 @@ function loadDashboard(){
       } else {
         let html = '<div class="table-scroll"><table class="dash-table"><thead><tr><th>部門</th><th>工號</th><th>姓名</th><th>生日</th><th>今年狀態</th></tr></thead><tbody>';
         s.upcoming.forEach(e=>{
-          html += `<tr><td>${esc(e.dept)}</td><td>${esc(e.empId)}</td><td>${esc(e.name)}</td><td>${esc(e.nextBirthday)}</td>`+
+          html += `<tr><td>${esc(e.dept)}</td><td>${esc(e.empId)}</td><td>${esc(e.name)}</td><td>${esc(mmdd(e.nextBirthday))}</td>`+
                   `<td>${e.sentThisYear ? '<span class="badge pass">已寄送</span>' : '<span class="badge wait">等待中</span>'}</td></tr>`;
         });
         html += '</tbody></table></div>';
@@ -800,7 +813,7 @@ function loadDashboard(){
       } else {
         let ahtml = '<div class="table-scroll"><table class="dash-table"><thead><tr><th>部門</th><th>工號</th><th>姓名</th><th>週年日期</th><th>年資</th><th>今年狀態</th></tr></thead><tbody>';
         s.anniversaryUpcoming.forEach(e=>{
-          ahtml += `<tr><td>${esc(e.dept)}</td><td>${esc(e.empId)}</td><td>${esc(e.name)}</td><td>${esc(e.nextAnniversary)}</td><td>${esc(e.yearsOfService)} 週年</td>`+
+          ahtml += `<tr><td>${esc(e.dept)}</td><td>${esc(e.empId)}</td><td>${esc(e.name)}</td><td>${esc(mmdd(e.nextAnniversary))}</td><td>${esc(e.yearsOfService)} 週年</td>`+
                    `<td>${e.anniversarySentThisYear ? '<span class="badge pass">已寄送</span>' : '<span class="badge wait">等待中</span>'}</td></tr>`;
         });
         ahtml += '</tbody></table></div>';
@@ -811,6 +824,14 @@ function loadDashboard(){
 }
 
 function esc(s){ return String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// 儀表板的「近期生日/週年提醒」只需要顯示月/日，不用年份（年份只在後端排序時用來正確處理
+// 跨年度的情況，例如 12 月底到 1 月初橫跨兩個年份時仍要照時間先後排序，顯示上把年份拿掉即可）
+function mmdd(dateStr){
+  if(!dateStr) return '';
+  const parts = String(dateStr).split('/');
+  return parts.length === 3 ? parts[1] + '/' + parts[2] : dateStr;
+}
 
 // ═══════════ 員工資料 ═══════════
 function loadEmployees(){
@@ -857,11 +878,11 @@ function renderEmployees(list){
     sorted = list.slice().sort((a,b)=>empCompare(a,b,empSortField) * empSortDir);
   }
   let html = '<div class="table-scroll"><table class="emp-table"><thead><tr>'+
-    sortTh('部門','dept')+sortTh('工號','empId')+sortTh('姓名','name')+sortTh('生日','birthday')+sortTh('到職日','hireDate')+sortTh('年資','yearsOfService')+
+    sortTh('部門','dept')+sortTh('工號','empId')+sortTh('姓名','name')+sortTh('生日','birthday')+sortTh('到職日','hireDate')+sortTh('留停天數','leaveDays')+sortTh('年資','yearsOfService')+
     '<th>Email</th><th>生日狀態</th><th>週年狀態</th><th>操作</th></tr></thead><tbody>';
   sorted.forEach(e=>{
     html += `<tr><td>${esc(e.dept)}</td><td>${esc(e.empId)}</td><td>${esc(e.name)}</td><td>${esc(e.birthday)}</td>`+
-            `<td>${esc(e.hireDate)||'—'}</td><td>${e.yearsOfService!=null ? esc(e.yearsOfService)+' 週年' : '—'}</td><td>${esc(e.email)}</td>`+
+            `<td>${esc(e.hireDate)||'—'}</td><td>${e.leaveDays ? esc(e.leaveDays)+' 天' : '—'}</td><td>${e.yearsOfService!=null ? esc(e.yearsOfService)+' 週年' : '—'}</td><td>${esc(e.email)}</td>`+
             `<td>${e.sentThisYear ? '<span class="badge pass">已寄送</span>' : '<span class="badge wait">未寄送</span>'}</td>`+
             `<td>${e.hireDate ? (e.anniversarySentThisYear ? '<span class="badge pass">已寄送</span>' : '<span class="badge wait">未寄送</span>') : '—'}</td>`+
             `<td><button class="btn-sm btn-primary" onclick="openEmployeeModal('${esc(e.empId)}')">編輯</button> `+
@@ -895,6 +916,7 @@ function openEmployeeModal(empId){
   document.getElementById('em-name').value = emp ? emp.name : '';
   document.getElementById('em-birthday').value = emp ? slashToDash(emp.birthday) : '';
   document.getElementById('em-hiredate').value = emp ? slashToDash(emp.hireDate) : '';
+  document.getElementById('em-leavedays').value = emp && emp.leaveDays ? emp.leaveDays : '';
   document.getElementById('em-email').value = emp ? emp.email : '';
   document.getElementById('modal-employee').classList.add('open');
 }
@@ -910,6 +932,7 @@ function saveEmployee(){
     name: document.getElementById('em-name').value.trim(),
     birthday: document.getElementById('em-birthday').value,
     hireDate: document.getElementById('em-hiredate').value,
+    leaveDays: parseInt(document.getElementById('em-leavedays').value, 10) || 0,
     email: document.getElementById('em-email').value.trim()
   };
   if(!payload.empId || !payload.name){ alert('請填寫工號與姓名'); return; }
@@ -1179,6 +1202,36 @@ function toggleColorPalette(type, event){
   document.getElementById(pfx(type)+'-color-palette').classList.toggle('open');
 }
 
+// 每次調整字級／行高／顏色，都是「清掉舊樣式、往外面再包一層新的」，但舊的包裝標籤
+// 本身（例如 <span style="font-size:...">）並不會被移除，只是樣式變成空的、繼續留在
+// DOM 裡面。反覆調整同一段文字很多次之後，這些空殼標籤會一層層疊加、越疊越深，不只讓
+// 內文的 HTML 變得又大又亂，這些「有標籤但沒有真正文字內容」的空殼在瀏覽器排版時也可能
+// 佔用非預期的行高空間，導致編輯畫面看到的文字位置跟後端合成結果對不起來。這裡在每次
+// 套用格式之後都清掉真正空的標籤，避免繼續累積
+//
+// 判斷「空殼」不能只看有沒有子節點：使用者刪除可見文字時，常常會留下只剩 &nbsp;／空白字元
+// 的標籤（例如原本用來排版的一長串 &nbsp; 縮排，文字刪掉了、空白卻還在），這種標籤實際上
+// 也已經沒有意義；但空白行用的隱形字元標記（U+200B）跟 <br> 都是有意義的內容，絕對不能清掉
+function isPrunableShell(el){
+  if(el.querySelector('br')) return false;
+  const text = el.textContent;
+  if(text.indexOf('​') !== -1) return false; // 空白行的隱形標記字元，保留
+  return text.replace(/[\s ]/g, '') === ''; // 只剩空白／&nbsp;，視為空殼
+}
+
+function pruneEmptyElements(root){
+  let removedAny = true;
+  while(removedAny){
+    removedAny = false;
+    root.querySelectorAll('span, font').forEach(el => {
+      if(el.isConnected && isPrunableShell(el)){
+        el.remove();
+        removedAny = true;
+      }
+    });
+  }
+}
+
 // 直接把選取範圍包成一個 <span style="...">，取代 execCommand('foreColor')。
 // execCommand 在這裡不穩定：顏色可能被瀏覽器轉成 rgb(...) 格式，導致後端合成圖片時的正則
 // 解析不到、顏色掉回預設黑色。手動包 span 才能確保這裡看到的樣式跟寄出的圖片一致
@@ -1239,15 +1292,16 @@ function wrapSelectionStyle(type, styleProp, styleValue){
     return;
   }
   const range = sel.getRangeAt(0);
+  // 先清掉選取範圍裡舊的同類樣式再包新的一層，避免像顏色這種每次都直接疊加、
+  // 從不清除舊值的做法，反覆調整同一段文字後留下一堆巢狀的舊樣式空殼
+  const frag = range.extractContents();
+  stripInlineStyle(frag, styleProp);
   const span = document.createElement('span');
   span.style[styleProp] = styleValue;
-  try {
-    range.surroundContents(span);
-  } catch(e){
-    const frag = range.extractContents();
-    span.appendChild(frag);
-    range.insertNode(span);
-  }
+  span.appendChild(frag);
+  range.insertNode(span);
+  pruneEmptyElements(body);
+
   sel.removeAllRanges();
   const newRange = document.createRange();
   newRange.selectNodeContents(span);
@@ -1322,6 +1376,7 @@ function applyFontSize(type, val){
   span.style.fontSize = px + 'px';
   span.appendChild(frag);
   range.insertNode(span);
+  pruneEmptyElements(body);
 
   sel.removeAllRanges();
   const newRange = document.createRange();
@@ -1429,6 +1484,7 @@ function applyLineHeight(type, val){
     }
     fullRange.insertNode(targetDiv);
   }
+  pruneEmptyElements(body);
 
   // 把游標收合成定點、留在這個 div 裡面，不要設成 null：如果沒有留下有效的選取範圍，使用者
   // 不重新點回編輯區、直接連續調整行高時，就找不到「目前在哪一行」，會退回用當下實際的選取
@@ -1482,12 +1538,27 @@ function testRenderCard(type){
     .then(r=>r.json())
     .then(res=>{
       if(res.status==='ok'){
-        resultEl.innerHTML = `<div class="config-hint" style="margin-bottom:.5rem">✅ 合成成功，以下是實際會寄出的圖片：</div><img src="${res.imageDataUri}" style="width:100%;display:block;border-radius:8px;box-shadow:6px 6px 16px rgba(0,0,0,.25)">`;
+        const sizeInfo = res.pixelSize ? `（圖片實際像素尺寸：${res.pixelSize.width} × ${res.pixelSize.height}，比例 ${(res.pixelSize.width/res.pixelSize.height).toFixed(3)}，正常應該接近 16:9＝1.778）` : '（無法讀取圖片實際像素尺寸）';
+        resultEl.innerHTML = `<div class="config-hint" style="margin-bottom:.5rem">✅ 合成成功，以下是實際會寄出的圖片：${sizeInfo}</div><img src="${res.imageDataUri}" style="width:100%;display:block;border-radius:8px;box-shadow:6px 6px 16px rgba(0,0,0,.25)">`;
       } else {
         resultEl.innerHTML = `<div class="login-err" style="display:block">⚠️ 合成失敗：${esc(res.message||'')}${res.stack ? '<br><span style="font-size:.72rem;opacity:.7">'+esc(res.stack)+'</span>' : ''}</div>`;
       }
     })
     .catch(()=>{ resultEl.innerHTML = '<div class="login-err" style="display:block">⚠️ 連線失敗，請確認 Apps Script 已部署最新版本</div>'; });
+}
+
+// 清掉內文裡真正空的殼標籤（過去反覆調整字級/顏色留下的殘留包裝）。只會移除完全沒有任何
+// 子節點的 span/font，不會動到有文字、有 <br>、或空白行用的隱形字元標記的內容，所以不會
+// 弄丟任何實際看得到的文字或格式；但如果內文已經累積非常多層「有內容但重複巢狀」的標籤
+// （不是單純空殼），這個按鈕沒辦法完全整理乾淨，那種情況建議整段文字重新輸入、重新套用格式
+function cleanupContent(type){
+  const body = document.getElementById(pfx(type)+'-body');
+  const before = body.querySelectorAll('span, font').length;
+  pruneEmptyElements(body);
+  const after = body.querySelectorAll('span, font').length;
+  const statusEl = document.getElementById(pfx(type)+'-cc-status');
+  statusEl.textContent = `✅ 已清除 ${before - after} 個空殼標籤（清理前 ${before} 個，清理後 ${after} 個）`;
+  setTimeout(()=>statusEl.textContent='', 5000);
 }
 
 // ═══════════ 寄送設定（birthday / anniversary 共用）═══════════
