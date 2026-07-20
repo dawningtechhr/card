@@ -1482,7 +1482,7 @@ function testRenderCard(type){
     .then(r=>r.json())
     .then(res=>{
       if(res.status==='ok'){
-        resultEl.innerHTML = `<div class="config-hint" style="margin-bottom:.5rem">✅ 合成成功，以下是實際會寄出的圖片：</div><img src="${res.imageDataUri}" style="width:100%;display:block">`;
+        resultEl.innerHTML = `<div class="config-hint" style="margin-bottom:.5rem">✅ 合成成功，以下是實際會寄出的圖片：</div><img src="${res.imageDataUri}" style="width:100%;display:block;border-radius:8px;box-shadow:6px 6px 16px rgba(0,0,0,.25)">`;
       } else {
         resultEl.innerHTML = `<div class="login-err" style="display:block">⚠️ 合成失敗：${esc(res.message||'')}${res.stack ? '<br><span style="font-size:.72rem;opacity:.7">'+esc(res.stack)+'</span>' : ''}</div>`;
       }
