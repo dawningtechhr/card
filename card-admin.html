@@ -80,6 +80,21 @@ button{font-family:'Noto Sans TC',sans-serif;cursor:pointer;border:none;border-r
 .sc-val.red{color:var(--red)}.sc-val.green{color:var(--green)}.sc-val.blue{color:var(--blue)}.sc-val.ink{color:var(--ink)}.sc-val.pink{color:var(--pink)}
 .sc-lbl{font-size:.75rem;color:var(--ink3)}
 
+/* DASHBOARD SIDE-BY-SIDE STAT PANELS */
+.dash-row{display:flex;gap:1rem;align-items:flex-start}
+.dash-row>.table-wrap{flex:1.6;min-width:0}
+.mini-stat-panel{flex:1;min-width:0;background:#fff;border:1px solid var(--paper3);border-radius:var(--radius-lg);padding:1rem 1.25rem}
+.mini-stat-panel h3{font-size:.95rem;margin:0}
+.mini-stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.6rem;margin-top:.9rem}
+.mini-stat-grid.cols-2{grid-template-columns:repeat(2,1fr)}
+.mini-stat-grid.cols-6{grid-template-columns:repeat(6,1fr)}
+.mini-stat-tile{background:var(--paper2);border-radius:var(--radius);padding:.55rem .4rem;text-align:center}
+.mini-stat-tile.mst-current{background:var(--pink-light)}
+.mini-stat-tile.mst-current .mst-val{color:var(--pink)}
+.mini-stat-tile .mst-lbl{font-size:.68rem;color:var(--ink3);margin-bottom:.2rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mini-stat-tile .mst-val{font-size:1.2rem;font-weight:700;color:var(--ink)}
+.mini-stat-tile .mst-sub{font-size:.65rem;color:var(--ink3);margin-top:.15rem}
+
 /* TABLE */
 .table-wrap{background:#fff;border:1px solid var(--paper3);border-radius:var(--radius-lg);overflow:hidden}
 .table-head{padding:1rem 1.25rem;border-bottom:1px solid var(--paper3);display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap}
@@ -313,7 +328,11 @@ tr:hover td{background:var(--paper)}
           <div class="stat-card"><div class="sc-val green" id="st-sent">—</div><div class="sc-lbl">今年已寄送</div></div>
           <div class="stat-card"><div class="sc-val pink" id="st-schedule">—</div><div class="sc-lbl">自動寄送狀態</div></div>
         </div>
-        <div class="table-wrap">
+        <div class="mini-stat-panel">
+          <h3>各月份生日人數</h3>
+          <div class="mini-stat-grid cols-6" id="bd-month-stats"></div>
+        </div>
+        <div class="table-wrap" style="margin-top:1rem">
           <div class="table-head"><h3>近期生日提醒（未來 30 天）</h3><button class="btn-sm btn-primary" onclick="showTab('employees');loadEmployees()">查看全部 →</button></div>
           <div id="dash-upcoming"><div class="loading-wrap"><div class="spinner"></div><div>資料載入中…</div></div></div>
         </div>
@@ -326,7 +345,15 @@ tr:hover td{background:var(--paper)}
           <div class="stat-card"><div class="sc-val green" id="st-anniv-sent">—</div><div class="sc-lbl">今年已寄送</div></div>
           <div class="stat-card"><div class="sc-val pink" id="st-anniv-schedule">—</div><div class="sc-lbl">自動寄送狀態</div></div>
         </div>
-        <div class="table-wrap">
+        <div class="mini-stat-panel">
+          <h3>今年滿周年人數統計</h3>
+          <div class="mini-stat-grid cols-6" id="anniv-milestone-stats"></div>
+        </div>
+        <div class="mini-stat-panel" style="margin-top:1rem">
+          <h3>年資區間統計</h3>
+          <div class="mini-stat-grid cols-6" id="anniv-tenure-stats"></div>
+        </div>
+        <div class="table-wrap" style="margin-top:1rem">
           <div class="table-head"><h3>近期到職週年提醒（未來 30 天）</h3><button class="btn-sm btn-primary" onclick="showTab('employees');loadEmployees()">查看全部 →</button></div>
           <div id="dash-anniv-upcoming"><div class="loading-wrap"><div class="spinner"></div><div>資料載入中…</div></div></div>
         </div>
@@ -819,6 +846,27 @@ function loadDashboard(){
         ahtml += '</tbody></table></div>';
         aWrap.innerHTML = ahtml;
       }
+
+      const monthWrap = document.getElementById('bd-month-stats');
+      const monthCounts = s.birthdayMonthCounts || new Array(12).fill(0);
+      const curMonth = new Date().getMonth() + 1;
+      monthWrap.innerHTML = monthCounts.map((c,i)=>
+        `<div class="mini-stat-tile${i+1===curMonth?' mst-current':''}"><div class="mst-lbl">${i+1} 月</div><div class="mst-val">${c}</div></div>`
+      ).join('');
+
+      const tenureLabels = {
+        under1:'未滿 1 年', y1to3:'滿 1～3 年', y3to5:'滿 3～5 年',
+        y5to10:'滿 5～10 年', y10to20:'滿 10～20 年', over20:'滿 20 年以上'
+      };
+      const tenureWrap = document.getElementById('anniv-tenure-stats');
+      tenureWrap.innerHTML = (s.tenureRanges||[]).map(t=>
+        `<div class="mini-stat-tile"><div class="mst-lbl">${tenureLabels[t.key]||t.key}</div><div class="mst-val">${t.count}</div><div class="mst-sub">${t.pct}%</div></div>`
+      ).join('');
+
+      const milestoneWrap = document.getElementById('anniv-milestone-stats');
+      milestoneWrap.innerHTML = (s.milestoneCounts||[]).map(m=>
+        `<div class="mini-stat-tile${m.count>0?' mst-current':''}"><div class="mst-lbl">滿 ${m.years} 週年</div><div class="mst-val">${m.count}</div><div class="mst-sub">人</div></div>`
+      ).join('');
     })
     .catch(()=>{ document.getElementById('dash-updated').textContent = '⚠️ 無法連線，請確認 Apps Script GS_URL 設定是否正確'; });
 }
@@ -860,9 +908,9 @@ function sortEmployees(field){
 }
 
 function empCompare(a, b, field){
-  if(field === 'yearsOfService'){
-    const va = a.yearsOfService ?? -Infinity;
-    const vb = b.yearsOfService ?? -Infinity;
+  if(field === 'completedYears'){
+    const va = a.completedYears ?? -Infinity;
+    const vb = b.completedYears ?? -Infinity;
     return va - vb;
   }
   const va = String(a[field] ?? '');
@@ -878,11 +926,11 @@ function renderEmployees(list){
     sorted = list.slice().sort((a,b)=>empCompare(a,b,empSortField) * empSortDir);
   }
   let html = '<div class="table-scroll"><table class="emp-table"><thead><tr>'+
-    sortTh('部門','dept')+sortTh('工號','empId')+sortTh('姓名','name')+sortTh('生日','birthday')+sortTh('到職日','hireDate')+sortTh('留停天數','leaveDays')+sortTh('年資','yearsOfService')+
+    sortTh('部門','dept')+sortTh('工號','empId')+sortTh('姓名','name')+sortTh('生日','birthday')+sortTh('到職日','hireDate')+sortTh('留停天數','leaveDays')+sortTh('年資','completedYears')+
     '<th>Email</th><th>生日狀態</th><th>週年狀態</th><th>操作</th></tr></thead><tbody>';
   sorted.forEach(e=>{
     html += `<tr><td>${esc(e.dept)}</td><td>${esc(e.empId)}</td><td>${esc(e.name)}</td><td>${esc(e.birthday)}</td>`+
-            `<td>${esc(e.hireDate)||'—'}</td><td>${e.leaveDays ? esc(e.leaveDays)+' 天' : '—'}</td><td>${e.yearsOfService!=null ? esc(e.yearsOfService)+' 週年' : '—'}</td><td>${esc(e.email)}</td>`+
+            `<td>${esc(e.hireDate)||'—'}</td><td>${e.leaveDays ? esc(e.leaveDays)+' 天' : '—'}</td><td>${e.completedYears!=null ? esc(e.completedYears)+' 年' : '—'}</td><td>${esc(e.email)}</td>`+
             `<td>${e.sentThisYear ? '<span class="badge pass">已寄送</span>' : '<span class="badge wait">未寄送</span>'}</td>`+
             `<td>${e.hireDate ? (e.anniversarySentThisYear ? '<span class="badge pass">已寄送</span>' : '<span class="badge wait">未寄送</span>') : '—'}</td>`+
             `<td><button class="btn-sm btn-primary" onclick="openEmployeeModal('${esc(e.empId)}')">編輯</button> `+
