@@ -1421,7 +1421,14 @@ function removeAdjacentLineBreak(range, before){
   const container = before ? range.startContainer : range.endContainer;
   const offset = before ? range.startOffset : range.endOffset;
   const adjacent = getAdjacentNode(container, offset, before);
-  if(adjacent && adjacent.nodeName === 'BR') adjacent.remove();
+  if(!adjacent || adjacent.nodeName !== 'BR') return;
+  // 如果這個緊鄰的 <br> 另一側還連著一個 <br>，代表這一對 <br><br> 其實是「相鄰那一行本身
+  // 是空白行」的邊界（空白行沒有文字，是用兩個相鄰的 <br> 夾出一行空白），不是單純用來
+  // 分隔前後內容的分隔符。這種情況不能刪，否則會把旁邊那整行空白行吃掉——這正是「調整
+  // 中間文字的行高，上面的空白行就消失一行」的成因
+  const neighbor = before ? adjacent.previousSibling : adjacent.nextSibling;
+  if(neighbor && neighbor.nodeName === 'BR') return;
+  adjacent.remove();
 }
 
 // 如果這段範圍剛好完整落在「先前套用行高時建立的那一個 <div>」裡面，直接回傳它，
@@ -1486,12 +1493,14 @@ function applyLineHeight(type, val){
   }
   pruneEmptyElements(body);
 
-  // 把游標收合成定點、留在這個 div 裡面，不要設成 null：如果沒有留下有效的選取範圍，使用者
-  // 不重新點回編輯區、直接連續調整行高時，就找不到「目前在哪一行」，會退回用當下實際的選取
-  // 狀態，這時常常已經跑掉、跳到最上面第一行去，導致「連續點調整行高，游標自己跳到第一行」
+  // 把游標收合成定點，留在「這次實際處理的這一行」（fullRange）結尾，不要設成 null：如果
+  // 沒有留下有效的選取範圍，使用者不重新點回編輯區、直接連續調整行高時，就找不到「目前在
+  // 哪一行」，會退回用當下實際的選取狀態，導致游標跳走。這裡刻意用 fullRange（這一行的範圍）
+  // 收合，而不是用 targetDiv 的範圍收合——如果這一行原本就屬於「先前套用行高時建立、涵蓋
+  // 好幾行」的既有 div（游標在最上面那一行、但那個 div 其實一路包到最後一行），用 targetDiv
+  // 收合會直接跳到整個 div 最後一行的結尾，也就是使用者回報的「游標自動跳到最後一個字」
   sel.removeAllRanges();
-  const newRange = document.createRange();
-  newRange.selectNodeContents(targetDiv);
+  const newRange = fullRange.cloneRange();
   newRange.collapse(false);
   sel.addRange(newRange);
   savedRanges[type] = newRange;
