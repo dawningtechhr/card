@@ -1539,7 +1539,20 @@ function testRenderCard(type){
     .then(res=>{
       if(res.status==='ok'){
         const sizeInfo = res.pixelSize ? `（圖片實際像素尺寸：${res.pixelSize.width} × ${res.pixelSize.height}，比例 ${(res.pixelSize.width/res.pixelSize.height).toFixed(3)}，正常應該接近 16:9＝1.778）` : '（無法讀取圖片實際像素尺寸）';
-        resultEl.innerHTML = `<div class="config-hint" style="margin-bottom:.5rem">✅ 合成成功，以下是實際會寄出的圖片：${sizeInfo}</div><img src="${res.imageDataUri}" style="width:100%;display:block;border-radius:8px;box-shadow:6px 6px 16px rgba(0,0,0,.25)">`;
+        const debugRows = (res.lineDebug||[]).map(function(d){
+          return `<tr><td>${d.line}</td><td>${esc(d.text)}</td><td>${d.y}</td><td>${d.height}</td><td>${d.fontSize}</td><td>${d.lineHeight}</td></tr>`;
+        }).join('');
+        const debugTable = debugRows ? `
+          <details style="margin-top:.75rem">
+            <summary style="cursor:pointer;font-size:.8rem;color:var(--ink2)">🔍 每行渲染診斷資料（比對編輯畫面用）</summary>
+            <div style="overflow-x:auto;margin-top:.5rem">
+              <table style="width:100%;font-size:.72rem;border-collapse:collapse">
+                <thead><tr style="text-align:left;color:var(--ink3)"><th>#</th><th>內容</th><th>Y (pt)</th><th>高度 (pt)</th><th>字級</th><th>行高倍數</th></tr></thead>
+                <tbody>${debugRows}</tbody>
+              </table>
+            </div>
+          </details>` : '';
+        resultEl.innerHTML = `<div class="config-hint" style="margin-bottom:.5rem">✅ 合成成功，以下是實際會寄出的圖片：${sizeInfo}</div><img src="${res.imageDataUri}" style="width:100%;display:block;border-radius:8px;box-shadow:6px 6px 16px rgba(0,0,0,.25)">${debugTable}`;
       } else {
         resultEl.innerHTML = `<div class="login-err" style="display:block">⚠️ 合成失敗：${esc(res.message||'')}${res.stack ? '<br><span style="font-size:.72rem;opacity:.7">'+esc(res.stack)+'</span>' : ''}</div>`;
       }
