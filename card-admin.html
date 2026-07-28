@@ -664,7 +664,11 @@ tr:hover td{background:var(--paper)}
     <!-- SEND LOG -->
     <div class="tab-content" id="tab-sendlog">
       <div class="page-title">寄送紀錄</div>
-      <div class="page-sub">已成功寄出的生日賀卡歷史紀錄</div>
+      <div class="page-sub">已成功寄出的賀卡歷史紀錄</div>
+      <div class="dash-subnav">
+        <div class="dash-subnav-item active" id="log-subnav-birthday" onclick="showLogSub('birthday')">🎂 生日賀卡</div>
+        <div class="dash-subnav-item" id="log-subnav-anniversary" onclick="showLogSub('anniversary')">🏆 週年賀卡</div>
+      </div>
       <div class="table-wrap">
         <div class="table-head">
           <h3>紀錄列表 <span id="log-count" style="font-size:.8rem;font-weight:400;color:var(--ink3)"></span></h3>
@@ -1742,17 +1746,27 @@ function runSendNow(type){
     .then(res=>{ statusEl.textContent = res.status==='ok' ? `✅ 執行完成，共寄出 ${res.sent} 張賀卡` : '⚠️ 執行失敗'; });
 }
 
-// ═══════════ 寄送紀錄 ═══════════
+// ═══════════ 寄送紀錄（birthday / anniversary 各自獨立查詢，避免只看得到生日賀卡的紀錄）═══════════
+let logSubType = 'birthday';
+
+function showLogSub(type){
+  logSubType = type;
+  document.querySelectorAll('#tab-sendlog .dash-subnav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('log-subnav-'+type).classList.add('active');
+  loadSendLog();
+}
+
 function loadSendLog(){
   document.getElementById('log-table-wrap').innerHTML = '<div class="loading-wrap"><div class="spinner"></div><div>資料載入中…</div></div>';
-  fetch(`${GS_URL}?action=getSendLog`)
+  const yearHeader = logSubType === 'anniversary' ? '週年年度' : '生日年度';
+  fetch(`${GS_URL}?action=getSendLog&cardType=${logSubType}`)
     .then(r=>r.json())
     .then(res=>{
       const logs = res.logs || [];
       document.getElementById('log-count').textContent = `共 ${logs.length} 筆`;
       const wrap = document.getElementById('log-table-wrap');
       if(!logs.length){ wrap.innerHTML = '<div class="table-empty">尚無寄送紀錄</div>'; return; }
-      let html = '<table><thead><tr><th>工號</th><th>姓名</th><th>部門</th><th>Email</th><th>生日年度</th><th>寄送時間</th></tr></thead><tbody>';
+      let html = `<table><thead><tr><th>工號</th><th>姓名</th><th>部門</th><th>Email</th><th>${yearHeader}</th><th>寄送時間</th></tr></thead><tbody>`;
       logs.forEach(l=>{
         html += `<tr><td>${esc(l.empId)}</td><td>${esc(l.name)}</td><td>${esc(l.dept)}</td><td>${esc(l.email)}</td><td>${esc(l.year)}</td><td>${esc(l.sentAt)}</td></tr>`;
       });
