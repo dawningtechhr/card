@@ -293,14 +293,14 @@ tr:hover td{background:var(--paper)}
       <p>員工賀卡管理系統</p>
     </div>
     <nav class="sb-nav">
-      <div class="nav-item active" onclick="showTab('dashboard')"><span class="ni">📊</span>儀表板</div>
-      <div class="nav-item" onclick="showTab('employees');loadEmployees()"><span class="ni">🎂</span>員工資料</div>
-      <div class="nav-item" onclick="showTab('bdcard');loadCardManagement('birthday')"><span class="ni">🎁</span>生日賀卡管理</div>
-      <div class="nav-item" onclick="showTab('annivcard');loadCardManagement('anniversary')"><span class="ni">🏆</span>周年賀卡管理</div>
-      <div class="nav-item" onclick="showTab('sendsettings');loadSendSettings('birthday');loadSendSettings('anniversary')"><span class="ni">⏰</span>寄送設定</div>
-      <div class="nav-item" onclick="showTab('sendlog');loadSendLog()"><span class="ni">📜</span>寄送紀錄</div>
-      <div class="nav-item" onclick="showTab('empsync');loadEmpSyncSettings()"><span class="ni">🔄</span>同步員工資料設定</div>
-      <div class="nav-item" onclick="showTab('admins');loadAdminsFromGS()"><span class="ni">👤</span>管理員設定</div>
+      <div class="nav-item active" data-tab="dashboard" onclick="showTab('dashboard')"><span class="ni">📊</span>儀表板</div>
+      <div class="nav-item" data-tab="employees" onclick="showTab('employees');loadEmployees()"><span class="ni">🎂</span>員工資料</div>
+      <div class="nav-item" data-tab="bdcard" onclick="showTab('bdcard');loadCardManagement('birthday')"><span class="ni">🎁</span>生日賀卡管理</div>
+      <div class="nav-item" data-tab="annivcard" onclick="showTab('annivcard');loadCardManagement('anniversary')"><span class="ni">🏆</span>周年賀卡管理</div>
+      <div class="nav-item" data-tab="sendsettings" onclick="showTab('sendsettings');loadSendSettings('birthday');loadSendSettings('anniversary')"><span class="ni">⏰</span>寄送設定</div>
+      <div class="nav-item" data-tab="sendlog" onclick="showTab('sendlog');loadSendLog()"><span class="ni">📜</span>寄送紀錄</div>
+      <div class="nav-item" data-tab="empsync" onclick="showTab('empsync');loadEmpSyncSettings()"><span class="ni">🔄</span>同步員工資料設定</div>
+      <div class="nav-item" data-tab="admins" onclick="showTab('admins');loadAdminsFromGS()"><span class="ni">👤</span>管理員設定</div>
     </nav>
     <div class="sb-footer">
       <div class="sb-user">
@@ -674,6 +674,8 @@ tr:hover td{background:var(--paper)}
         <div class="table-head">
           <h3>紀錄列表 <span id="log-count" style="font-size:.8rem;font-weight:400;color:var(--ink3)"></span></h3>
           <div class="table-actions">
+            <select class="filter-select" id="log-filter-dept" onchange="filterSendLog()"><option value="">全部部門</option></select>
+            <select class="filter-select" id="log-filter-year" onchange="filterSendLog()"><option value="">全部年度</option></select>
             <button class="btn-sm btn-secondary" onclick="loadSendLog()">🔄 重新整理</button>
           </div>
         </div>
@@ -735,7 +737,7 @@ tr:hover td{background:var(--paper)}
           <label>留停天數</label>
           <select id="es-map-leavedays" style="max-width:260px"><option value="">— 請選擇 —</option></select>
         </div>
-        <div class="config-hint" style="margin:-.4rem 0 .9rem">生日／到職日欄位請確保來源儲存格為日期格式（或 yyyy/MM/dd 文字），留停天數請為數字。</div>
+        <div class="config-hint" style="margin:-.4rem 0 .9rem">生日／到職日欄位請確保來源儲存格為日期格式（或 yyyy/MM/dd 文字）；留停天數欄位可以是數字，也可以是「X年Y月Z日」這種文字（例如「扣減留停離職年資」欄位），系統會自動換算成天數（1年＝365天、1月＝30天）存入。</div>
         <div style="display:flex;gap:.6rem;align-items:center;margin-top:.5rem">
           <button class="btn-sm btn-primary" onclick="saveEmpSyncMapping()">💾 儲存對應設定</button>
           <span class="config-hint" id="es-map-status-msg" style="margin:0"></span>
@@ -883,15 +885,11 @@ function doLogout(){
 }
 
 // ═══════════ 分頁切換 ═══════════
-function tabLabel(n){
-  return {dashboard:'儀表板',employees:'員工資料',bdcard:'生日賀卡管理',annivcard:'周年賀卡管理',
-          sendsettings:'寄送設定',sendlog:'寄送紀錄',empsync:'同步員工資料設定',admins:'管理員設定'}[n] || n;
-}
 function showTab(name){
   document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
   document.getElementById('tab-'+name).classList.add('active');
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n=>{ if(n.textContent.includes(tabLabel(name))) n.classList.add('active'); });
+  document.querySelectorAll('.nav-item').forEach(n=>{ if(n.dataset.tab === name) n.classList.add('active'); });
   if(name==='dashboard') loadDashboard();
 }
 
@@ -1037,12 +1035,16 @@ function loadEmployees(){
     .then(res=>{
       allEmployees = res.employees || [];
       document.getElementById('emp-count').textContent = `共 ${allEmployees.length} 筆`;
-      renderEmployees(allEmployees);
+      empCurrentPage = 1;
+      filterEmployees();
     })
     .catch(()=>{ document.getElementById('emp-table-wrap').innerHTML = '<div class="table-empty">⚠️ 資料載入失敗</div>'; });
 }
 
 let empSortField = null, empSortDir = 1;
+const EMP_PAGE_SIZE = 10;
+let empCurrentPage = 1;
+let empLastFilteredList = [];
 
 function sortTh(label, field){
   const arrow = empSortField===field ? (empSortDir===1?'▲':'▼') : '<span class="sort-icon-idle">⇅</span>';
@@ -1067,18 +1069,28 @@ function empCompare(a, b, field){
 }
 
 function renderEmployees(list){
+  empLastFilteredList = list;
   const wrap = document.getElementById('emp-table-wrap');
   if(!list.length){ wrap.innerHTML = '<div class="table-empty">目前沒有員工資料，請至試算表「員工資料」工作表新增</div>'; return; }
   let sorted = list;
   if(empSortField){
     sorted = list.slice().sort((a,b)=>empCompare(a,b,empSortField) * empSortDir);
   }
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / EMP_PAGE_SIZE));
+  if(empCurrentPage > totalPages) empCurrentPage = totalPages;
+  if(empCurrentPage < 1) empCurrentPage = 1;
+  const pageStart = (empCurrentPage - 1) * EMP_PAGE_SIZE;
+  const pageList = sorted.slice(pageStart, pageStart + EMP_PAGE_SIZE);
+
   let html = '<div class="table-scroll"><table class="emp-table"><thead><tr>'+
+    '<th>不寄送</th>'+
     sortTh('部門','dept')+sortTh('工號','empId')+sortTh('姓名','name')+sortTh('生日','birthday')+sortTh('到職日','hireDate')+sortTh('留停天數','leaveDays')+sortTh('年資','completedYears')+
     '<th>Email</th><th>生日狀態</th><th>週年狀態</th><th>操作</th></tr></thead><tbody>';
-  sorted.forEach(e=>{
-    html += `<tr><td>${esc(e.dept)}</td><td>${esc(e.empId)}</td><td>${esc(e.name)}</td><td>${esc(e.birthday)}</td>`+
-            `<td>${esc(e.hireDate)||'—'}</td><td>${e.leaveDays ? esc(e.leaveDays)+' 天' : '—'}</td><td>${e.completedYears!=null ? esc(e.completedYears)+' 年' : '—'}</td><td>${esc(e.email)}</td>`+
+  pageList.forEach(e=>{
+    html += `<tr><td><input type="checkbox" ${e.doNotSend?'checked':''} onchange="toggleDoNotSend('${esc(e.empId)}', this.checked, this)"></td>`+
+            `<td>${esc(e.dept)}</td><td>${esc(e.empId)}</td><td>${esc(e.name)}</td><td>${esc(e.birthday)}</td>`+
+            `<td>${esc(e.hireDate)||'—'}</td><td>${e.leaveDays ? esc(e.leaveDays)+' 天' : '—'}</td><td>${e.completedYearsText ? esc(e.completedYearsText) : '—'}</td><td>${esc(e.email)}</td>`+
             `<td>${e.sentThisYear ? '<span class="badge pass">已寄送</span>' : '<span class="badge wait">未寄送</span>'}</td>`+
             `<td>${e.hireDate ? (e.anniversarySentThisYear ? '<span class="badge pass">已寄送</span>' : '<span class="badge wait">未寄送</span>') : '—'}</td>`+
             `<td><button class="btn-sm btn-primary" onclick="openEmployeeModal('${esc(e.empId)}')">編輯</button> `+
@@ -1086,7 +1098,26 @@ function renderEmployees(list){
             `<button class="btn-sm btn-secondary" onclick="sendTestCard('${esc(e.empId)}','anniversary')">✉ 週年測試</button></td></tr>`;
   });
   html += '</tbody></table></div>';
+  html += renderEmpPagination(sorted.length, totalPages);
   wrap.innerHTML = html;
+}
+
+function renderEmpPagination(totalCount, totalPages){
+  if(totalPages <= 1) return '';
+  const start = (empCurrentPage - 1) * EMP_PAGE_SIZE + 1;
+  const end = Math.min(empCurrentPage * EMP_PAGE_SIZE, totalCount);
+  return `<div style="display:flex;align-items:center;justify-content:space-between;padding:.85rem 1.25rem;border-top:1px solid var(--paper3)">`+
+    `<span class="config-hint" style="margin:0">顯示第 ${start}–${end} 筆，共 ${totalCount} 筆</span>`+
+    `<div style="display:flex;gap:.5rem;align-items:center">`+
+      `<button class="btn-sm btn-secondary" ${empCurrentPage<=1?'disabled':''} onclick="goToEmpPage(${empCurrentPage-1})">‹ 上一頁</button>`+
+      `<span class="config-hint" style="margin:0">第 ${empCurrentPage} / ${totalPages} 頁</span>`+
+      `<button class="btn-sm btn-secondary" ${empCurrentPage>=totalPages?'disabled':''} onclick="goToEmpPage(${empCurrentPage+1})">下一頁 ›</button>`+
+    `</div></div>`;
+}
+
+function goToEmpPage(page){
+  empCurrentPage = page;
+  renderEmployees(empLastFilteredList);
 }
 
 function filterEmployees(){
@@ -1097,6 +1128,7 @@ function filterEmployees(){
     const matchSt = !st || (st==='sent' ? e.sentThisYear : !e.sentThisYear);
     return matchKw && matchSt;
   });
+  empCurrentPage = 1;
   renderEmployees(list);
 }
 
@@ -1138,6 +1170,21 @@ function saveEmployee(){
       if(res.status==='ok'){ closeEmployeeModal(); loadEmployees(); }
       else alert('⚠️ ' + (res.message || '儲存失敗'));
     });
+}
+
+function toggleDoNotSend(empId, checked, checkboxEl){
+  fetch(GS_URL, { method:'POST', body:JSON.stringify({ action:'updateEmployeeDoNotSend', empId, doNotSend: checked }) })
+    .then(r=>r.json())
+    .then(res=>{
+      if(res.status==='ok'){
+        const emp = allEmployees.find(e=>String(e.empId)===String(empId));
+        if(emp) emp.doNotSend = checked;
+      } else {
+        alert('⚠️ ' + (res.message || '更新失敗'));
+        checkboxEl.checked = !checked;
+      }
+    })
+    .catch(()=>{ alert('⚠️ 連線失敗'); checkboxEl.checked = !checked; });
 }
 
 function sendTestCard(empId, cardType){
@@ -1853,24 +1900,79 @@ function showLogSub(type){
   loadSendLog();
 }
 
+let allLogs = [];
+let logSortField = null, logSortDir = 1;
+
+function logSortTh(label, field){
+  const arrow = logSortField===field ? (logSortDir===1?'▲':'▼') : '<span class="sort-icon-idle">⇅</span>';
+  return `<th class="sortable-th" onclick="sortSendLog('${field}')">${label} <span class="sort-icon">${arrow}</span></th>`;
+}
+
+function sortSendLog(field){
+  logSortDir = (logSortField === field) ? -logSortDir : 1;
+  logSortField = field;
+  filterSendLog();
+}
+
+function logCompare(a, b, field){
+  const va = String(a[field] ?? '');
+  const vb = String(b[field] ?? '');
+  return va.localeCompare(vb, 'zh-Hant', {numeric:true});
+}
+
 function loadSendLog(){
   document.getElementById('log-table-wrap').innerHTML = '<div class="loading-wrap"><div class="spinner"></div><div>資料載入中…</div></div>';
-  const yearHeader = logSubType === 'anniversary' ? '週年年度' : '生日年度';
   fetch(`${GS_URL}?action=getSendLog&cardType=${logSubType}`)
     .then(r=>r.json())
     .then(res=>{
-      const logs = res.logs || [];
-      document.getElementById('log-count').textContent = `共 ${logs.length} 筆`;
-      const wrap = document.getElementById('log-table-wrap');
-      if(!logs.length){ wrap.innerHTML = '<div class="table-empty">尚無寄送紀錄</div>'; return; }
-      let html = `<table><thead><tr><th>工號</th><th>姓名</th><th>部門</th><th>Email</th><th>${yearHeader}</th><th>寄送時間</th></tr></thead><tbody>`;
-      logs.forEach(l=>{
-        html += `<tr><td>${esc(l.empId)}</td><td>${esc(l.name)}</td><td>${esc(l.dept)}</td><td>${esc(l.email)}</td><td>${esc(l.year)}</td><td>${esc(l.sentAt)}</td></tr>`;
-      });
-      html += '</tbody></table>';
-      wrap.innerHTML = html;
+      allLogs = res.logs || [];
+      populateLogFilters(allLogs);
+      filterSendLog();
     })
     .catch(()=>{ document.getElementById('log-table-wrap').innerHTML = '<div class="table-empty">⚠️ 資料載入失敗</div>'; });
+}
+
+// 部門／年度下拉選單的選項直接從當前這批寄送紀錄本身取值（不重複、依序排列），
+// 切換生日/週年賀卡或重新整理後選項會跟著更新；若原本選的值在新選項裡還存在就保留，
+// 不存在（例如切到週年賀卡沒有那個年度）就重置回「全部」
+function populateLogFilters(logs){
+  const deptSel = document.getElementById('log-filter-dept');
+  const yearSel = document.getElementById('log-filter-year');
+  const curDept = deptSel.value, curYear = yearSel.value;
+  const depts = [...new Set(logs.map(l=>l.dept).filter(Boolean))].sort((a,b)=>String(a).localeCompare(String(b),'zh-Hant'));
+  const years = [...new Set(logs.map(l=>l.year).filter(Boolean))].sort((a,b)=>String(b).localeCompare(String(a),'zh-Hant',{numeric:true}));
+  deptSel.innerHTML = '<option value="">全部部門</option>' + depts.map(d=>`<option value="${esc(d)}">${esc(d)}</option>`).join('');
+  yearSel.innerHTML = '<option value="">全部年度</option>' + years.map(y=>`<option value="${esc(y)}">${esc(y)}</option>`).join('');
+  if(depts.includes(curDept)) deptSel.value = curDept;
+  if(years.includes(curYear)) yearSel.value = curYear;
+}
+
+function filterSendLog(){
+  const dept = document.getElementById('log-filter-dept').value;
+  const year = document.getElementById('log-filter-year').value;
+  const list = allLogs.filter(l=>{
+    const matchDept = !dept || String(l.dept) === dept;
+    const matchYear = !year || String(l.year) === year;
+    return matchDept && matchYear;
+  });
+  renderSendLog(list);
+}
+
+function renderSendLog(list){
+  const yearHeader = logSubType === 'anniversary' ? '週年年度' : '生日年度';
+  document.getElementById('log-count').textContent = `共 ${list.length} 筆`;
+  const wrap = document.getElementById('log-table-wrap');
+  if(!list.length){ wrap.innerHTML = '<div class="table-empty">尚無寄送紀錄</div>'; return; }
+  let sorted = list;
+  if(logSortField){
+    sorted = list.slice().sort((a,b)=>logCompare(a,b,logSortField) * logSortDir);
+  }
+  let html = `<table><thead><tr>${logSortTh('工號','empId')}${logSortTh('姓名','name')}${logSortTh('部門','dept')}${logSortTh('Email','email')}${logSortTh(yearHeader,'year')}${logSortTh('寄送時間','sentAt')}</tr></thead><tbody>`;
+  sorted.forEach(l=>{
+    html += `<tr><td>${esc(l.empId)}</td><td>${esc(l.name)}</td><td>${esc(l.dept)}</td><td>${esc(l.email)}</td><td>${esc(l.year)}</td><td>${esc(l.sentAt)}</td></tr>`;
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
 }
 
 // ═══════════ 同步員工資料設定 ═══════════
