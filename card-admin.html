@@ -299,6 +299,7 @@ tr:hover td{background:var(--paper)}
       <div class="nav-item" onclick="showTab('annivcard');loadCardManagement('anniversary')"><span class="ni">🏆</span>周年賀卡管理</div>
       <div class="nav-item" onclick="showTab('sendsettings');loadSendSettings('birthday');loadSendSettings('anniversary')"><span class="ni">⏰</span>寄送設定</div>
       <div class="nav-item" onclick="showTab('sendlog');loadSendLog()"><span class="ni">📜</span>寄送紀錄</div>
+      <div class="nav-item" onclick="showTab('empsync');loadEmpSyncSettings()"><span class="ni">🔄</span>同步員工資料設定</div>
       <div class="nav-item" onclick="showTab('admins');loadAdminsFromGS()"><span class="ni">👤</span>管理員設定</div>
     </nav>
     <div class="sb-footer">
@@ -680,6 +681,100 @@ tr:hover td{background:var(--paper)}
       </div>
     </div>
 
+    <!-- EMPLOYEE DATA SYNC SETTINGS -->
+    <div class="tab-content" id="tab-empsync">
+      <div class="page-title">同步員工資料設定</div>
+      <div class="page-sub">設定固定檔名與欄位對應，從雲端硬碟同步員工總表資料，可手動執行或設定每日自動同步</div>
+
+      <div class="config-card">
+        <h3>1. 設定來源檔案與欄位對應</h3>
+        <div class="config-row">
+          <label>固定檔名</label>
+          <input type="text" id="es-filename" placeholder="例如：員工資料匯出" style="max-width:320px">
+        </div>
+        <div class="config-hint" style="margin:-.4rem 0 .9rem">系統每次同步都會在雲端硬碟中尋找此檔名、且最近更新的 Google 試算表檔案，適合每天用同一個檔名覆蓋/另存的情境。</div>
+
+        <div class="config-row">
+          <label>標題列（第幾列）</label>
+          <input type="number" id="es-headerrow" min="1" value="1" style="max-width:100px">
+          <button class="btn-sm btn-secondary" onclick="readEmpSyncFields()">讀取欄位</button>
+        </div>
+        <div class="config-hint" style="margin:-.4rem 0 .9rem">若來源檔案前面有幾列說明或空白，欄位標題不是在第 1 列，請填實際所在的列數（例如第 9 列）。</div>
+        <div class="config-hint" id="es-fields-status" style="margin:0 0 .9rem"></div>
+
+        <div class="config-row">
+          <label>工號 *</label>
+          <select id="es-map-empid" style="max-width:260px"><option value="">— 請選擇 —</option></select>
+        </div>
+        <div class="config-row">
+          <label>在職狀態 *</label>
+          <select id="es-map-status" style="max-width:260px"><option value="">— 請選擇 —</option></select>
+        </div>
+        <div class="config-hint" style="margin:-.4rem 0 .9rem">來源欄位內容須為「在職」或「離職」文字，用於判斷新增／刪除。</div>
+        <div class="config-row">
+          <label>姓名</label>
+          <select id="es-map-name" style="max-width:260px"><option value="">— 請選擇 —</option></select>
+        </div>
+        <div class="config-row">
+          <label>部門</label>
+          <select id="es-map-dept" style="max-width:260px"><option value="">— 請選擇 —</option></select>
+        </div>
+        <div class="config-row">
+          <label>Email</label>
+          <select id="es-map-email" style="max-width:260px"><option value="">— 請選擇 —</option></select>
+        </div>
+        <div class="config-row">
+          <label>生日</label>
+          <select id="es-map-birthday" style="max-width:260px"><option value="">— 請選擇 —</option></select>
+        </div>
+        <div class="config-row">
+          <label>到職日</label>
+          <select id="es-map-hiredate" style="max-width:260px"><option value="">— 請選擇 —</option></select>
+        </div>
+        <div class="config-row">
+          <label>留停天數</label>
+          <select id="es-map-leavedays" style="max-width:260px"><option value="">— 請選擇 —</option></select>
+        </div>
+        <div class="config-hint" style="margin:-.4rem 0 .9rem">生日／到職日欄位請確保來源儲存格為日期格式（或 yyyy/MM/dd 文字），留停天數請為數字。</div>
+        <div style="display:flex;gap:.6rem;align-items:center;margin-top:.5rem">
+          <button class="btn-sm btn-primary" onclick="saveEmpSyncMapping()">💾 儲存對應設定</button>
+          <span class="config-hint" id="es-map-status-msg" style="margin:0"></span>
+        </div>
+      </div>
+
+      <div class="config-card">
+        <h3>2. 每日自動同步</h3>
+        <div class="config-row">
+          <label>是否啟用每日自動同步</label>
+          <div class="toggle-row">
+            <label class="toggle"><input type="checkbox" id="es-enabled"><span class="toggle-slider"></span></label>
+            <span class="config-hint" id="es-enabled-label" style="margin:0">關閉</span>
+          </div>
+        </div>
+        <div class="config-row">
+          <label>每日同步時間</label>
+          <select id="es-hour" style="max-width:140px"></select>
+        </div>
+        <div class="config-hint" style="margin:-.4rem 0 .9rem">Apps Script 觸發器僅保證在此時段內的某個時間點執行，非精確整點。</div>
+        <div style="display:flex;gap:.6rem;align-items:center">
+          <button class="btn-sm btn-primary" onclick="saveEmpSyncSchedule()">💾 儲存設定</button>
+          <span class="config-hint" id="es-schedule-status" style="margin:0"></span>
+        </div>
+        <div class="config-hint" id="es-lastrun" style="margin-top:.75rem"></div>
+      </div>
+
+      <div class="config-card">
+        <h3>3. 執行同步</h3>
+        <div class="config-hint" style="margin:0 0 1rem;line-height:1.7">
+          以來源檔案「工號」為主要依據：來源為在職且員工資料尚無此工號資料 → <b>新增</b>；來源為離職、或員工資料有資料但來源已無此工號 → <b>從員工資料刪除</b>；其餘已存在者只更新已對應的欄位（姓名/部門/Email/生日/到職日/留停天數，視是否已設定對應而定）。此操作會實際刪除/新增員工資料，請確認來源檔案正確後再執行。
+        </div>
+        <div style="display:flex;gap:.6rem;align-items:center">
+          <button class="btn-sm btn-danger" onclick="runEmpSyncNow()">🔄 立即同步</button>
+          <span class="config-hint" id="es-run-status" style="margin:0"></span>
+        </div>
+      </div>
+    </div>
+
     <!-- ADMINS -->
     <div class="tab-content" id="tab-admins">
       <div class="page-title">管理員設定</div>
@@ -790,7 +885,7 @@ function doLogout(){
 // ═══════════ 分頁切換 ═══════════
 function tabLabel(n){
   return {dashboard:'儀表板',employees:'員工資料',bdcard:'生日賀卡管理',annivcard:'周年賀卡管理',
-          sendsettings:'寄送設定',sendlog:'寄送紀錄',admins:'管理員設定'}[n] || n;
+          sendsettings:'寄送設定',sendlog:'寄送紀錄',empsync:'同步員工資料設定',admins:'管理員設定'}[n] || n;
 }
 function showTab(name){
   document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
@@ -1105,7 +1200,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     zone.addEventListener('drop', e=>{ if(e.dataTransfer.files.length) handleImageSelect(type, e.dataTransfer.files); });
   });
 
-  ['bd-hour','an-hour'].forEach(id=>{
+  ['bd-hour','an-hour','es-hour'].forEach(id=>{
     const sel = document.getElementById(id);
     if(!sel) return;
     for(let h=0; h<24; h++){
@@ -1704,6 +1799,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const cb = document.getElementById(pfx(type)+'-enabled');
     if(cb) cb.addEventListener('change', ()=>updateEnabledLabel(type));
   });
+  const esCb = document.getElementById('es-enabled');
+  if(esCb) esCb.addEventListener('change', ()=>updateEmpSyncEnabledLabel());
 });
 function updateEnabledLabel(type){
   document.getElementById(pfx(type)+'-enabled-label').textContent = document.getElementById(pfx(type)+'-enabled').checked ? '啟用中' : '停用中';
@@ -1774,6 +1871,121 @@ function loadSendLog(){
       wrap.innerHTML = html;
     })
     .catch(()=>{ document.getElementById('log-table-wrap').innerHTML = '<div class="table-empty">⚠️ 資料載入失敗</div>'; });
+}
+
+// ═══════════ 同步員工資料設定 ═══════════
+let empSyncFields = [];
+const EMP_SYNC_MAP_FIELDS = [
+  { key:'empId', id:'es-map-empid' },
+  { key:'status', id:'es-map-status' },
+  { key:'name', id:'es-map-name' },
+  { key:'dept', id:'es-map-dept' },
+  { key:'email', id:'es-map-email' },
+  { key:'birthday', id:'es-map-birthday' },
+  { key:'hireDate', id:'es-map-hiredate' },
+  { key:'leaveDays', id:'es-map-leavedays' }
+];
+
+function loadEmpSyncSettings(){
+  fetch(`${GS_URL}?action=getEmpSyncSettings`)
+    .then(r=>r.json())
+    .then(s=>{
+      document.getElementById('es-filename').value = s.fileName || '';
+      document.getElementById('es-headerrow').value = s.headerRow || 1;
+      empSyncFields = s.fields || [];
+      renderEmpSyncFieldOptions(s.mapping || {});
+      updateEmpSyncFieldsStatus(s.fileName, empSyncFields.length);
+      document.getElementById('es-enabled').checked = !!s.enabled;
+      updateEmpSyncEnabledLabel();
+      document.getElementById('es-hour').value = s.hour ?? 0;
+      document.getElementById('es-lastrun').textContent = s.lastRun ? ('最後執行：' + s.lastRun) : '';
+    })
+    .catch(()=>{ document.getElementById('es-fields-status').textContent = '⚠️ 無法連線，請確認 Apps Script GS_URL 設定是否正確'; });
+}
+
+function updateEmpSyncFieldsStatus(fileName, count){
+  const el = document.getElementById('es-fields-status');
+  el.innerHTML = (fileName && count) ? `✅ 已讀取「${esc(fileName)}」，共 ${count} 個欄位` : '';
+}
+
+function renderEmpSyncFieldOptions(mapping){
+  EMP_SYNC_MAP_FIELDS.forEach(f=>{
+    const sel = document.getElementById(f.id);
+    const current = mapping[f.key] || '';
+    sel.innerHTML = '<option value="">— 請選擇 —</option>' +
+      empSyncFields.map(name=>`<option value="${esc(name)}"${name===current?' selected':''}>${esc(name)}</option>`).join('');
+  });
+}
+
+function readEmpSyncFields(){
+  const fileName = document.getElementById('es-filename').value.trim();
+  const headerRow = parseInt(document.getElementById('es-headerrow').value, 10) || 1;
+  if(!fileName){ alert('請輸入固定檔名'); return; }
+  const statusEl = document.getElementById('es-fields-status');
+  statusEl.textContent = '讀取中…';
+  fetch(GS_URL, { method:'POST', body:JSON.stringify({ action:'readEmpSyncFields', fileName, headerRow }) })
+    .then(r=>r.json())
+    .then(res=>{
+      if(res.status==='ok'){
+        empSyncFields = res.fields || [];
+        renderEmpSyncFieldOptions({});
+        updateEmpSyncFieldsStatus(res.fileName, empSyncFields.length);
+      } else {
+        statusEl.textContent = '⚠️ ' + (res.message || '讀取失敗');
+      }
+    })
+    .catch(()=>{ statusEl.textContent = '⚠️ 連線失敗'; });
+}
+
+function saveEmpSyncMapping(){
+  const mapping = {
+    empId: document.getElementById('es-map-empid').value,
+    status: document.getElementById('es-map-status').value,
+    name: document.getElementById('es-map-name').value,
+    dept: document.getElementById('es-map-dept').value,
+    email: document.getElementById('es-map-email').value,
+    birthday: document.getElementById('es-map-birthday').value,
+    hireDate: document.getElementById('es-map-hiredate').value,
+    leaveDays: document.getElementById('es-map-leavedays').value
+  };
+  if(!mapping.empId || !mapping.status){ alert('「工號」與「在職狀態」為必填欄位對應'); return; }
+  const fileName = document.getElementById('es-filename').value.trim();
+  const headerRow = parseInt(document.getElementById('es-headerrow').value, 10) || 1;
+  const statusEl = document.getElementById('es-map-status-msg');
+  statusEl.textContent = '儲存中…';
+  fetch(GS_URL, { method:'POST', body:JSON.stringify({ action:'saveEmpSyncMapping', fileName, headerRow, mapping }) })
+    .then(r=>r.json())
+    .then(res=>{ statusEl.textContent = res.status==='ok' ? '✅ 對應設定已儲存' : ('⚠️ ' + (res.message || '儲存失敗')); });
+}
+
+function updateEmpSyncEnabledLabel(){
+  document.getElementById('es-enabled-label').textContent = document.getElementById('es-enabled').checked ? '啟用' : '關閉';
+}
+
+function saveEmpSyncSchedule(){
+  const enabled = document.getElementById('es-enabled').checked;
+  const hour = parseInt(document.getElementById('es-hour').value, 10);
+  const statusEl = document.getElementById('es-schedule-status');
+  statusEl.textContent = '儲存中…';
+  fetch(GS_URL, { method:'POST', body:JSON.stringify({ action:'saveEmpSyncSchedule', enabled, hour }) })
+    .then(r=>r.json())
+    .then(res=>{ statusEl.textContent = res.status==='ok' ? '✅ 設定已儲存，觸發器已更新' : '⚠️ 儲存失敗'; });
+}
+
+function runEmpSyncNow(){
+  if(!confirm('此操作會實際刪除/新增員工資料，請確認來源檔案正確後再執行。確定要立即同步嗎？')) return;
+  const statusEl = document.getElementById('es-run-status');
+  statusEl.textContent = '同步中…';
+  fetch(GS_URL, { method:'POST', body:JSON.stringify({ action:'runEmpSyncNow' }) })
+    .then(r=>r.json())
+    .then(res=>{
+      if(res.status==='ok'){
+        statusEl.textContent = `✅ 同步完成：新增 ${res.added} 筆，刪除 ${res.removed} 筆，更新 ${res.updated} 筆`;
+      } else {
+        statusEl.textContent = '⚠️ ' + (res.message || '同步失敗');
+      }
+    })
+    .catch(()=>{ statusEl.textContent = '⚠️ 連線失敗'; });
 }
 
 // ═══════════ 管理員設定 ═══════════
